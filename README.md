@@ -2,7 +2,7 @@
 
 A web-based chess tournament management system built for chess clubs and college events. It supports Swiss System and Knockout formats with automatic pairing generation, live standings, and round-by-round result tracking.
 
-🌐 **Live Website:** [https://chess-tournament-pairing.vercel.app/](https://chess-tournament-pairing.vercel.app/)
+🌐 **Live Website:** [Tap Here](https://chess-pairing1.vercel.app/)
 
 ---
 
