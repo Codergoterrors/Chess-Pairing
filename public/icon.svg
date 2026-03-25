@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" fill="none"/>
+  <!-- Chess Knight -->
+  <path d="M 8 20 L 8 10 Q 8 8 10 8 L 16 8 Q 18 8 18 10 L 18 14 Q 18 16 20 16 L 22 16 Q 24 16 24 18 L 24 22 Q 24 24 22 24 L 10 24 Q 8 24 8 22 Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Knight details -->
+  <circle cx="10" cy="10" r="1" fill="white"/>
+  <line x1="16" y1="14" x2="20" y2="18" stroke="white" stroke-width="0.5"/>
+</svg>
