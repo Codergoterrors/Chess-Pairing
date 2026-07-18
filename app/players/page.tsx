@@ -16,10 +16,12 @@ import { Player } from "@/lib/types";
 import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
 const BRANCHES = ["CE", "CSE CySec", "CSE AIML", "IT", "ENTC", "ME", "Civil", "Other"];
+const PROGRAMS = ["B.Tech", "BBA", "BCA", "MBA", "B.Sc", "BCS", "B.Com", "Other"];
 
 const emptyForm = (): Partial<Player> => ({
   name: "", rollNo: "", branch: "CE", year: "", isRated: false,
   officialElo: undefined, fideRating: undefined, estimatedElo: undefined,
+  program: "", enrollmentNo: "", mobileNo: "",
 });
 
 export default function PlayersPage() {
@@ -31,6 +33,8 @@ export default function PlayersPage() {
   const [showImport, setShowImport] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [form, setForm] = useState<Partial<Player>>(emptyForm());
+  const [isCustomBranch, setIsCustomBranch] = useState(false);
+  const [isCustomProgram, setIsCustomProgram] = useState(false);
 
   // Aggregate W/L/D across ALL tournaments for each player
   const playerStats = useMemo(() => {
@@ -61,18 +65,25 @@ export default function PlayersPage() {
   const openAdd = () => {
     setEditingPlayer(null);
     setForm(emptyForm());
+    setIsCustomBranch(false);
+    setIsCustomProgram(false);
     setShowDialog(true);
   };
 
   const openEdit = (p: Player) => {
     setEditingPlayer(p);
     setForm({ ...p });
+    // Detect custom branch (value not in the standard list)
+    setIsCustomBranch(!!p.branch && !BRANCHES.slice(0, -1).includes(p.branch as string));
+    // Detect custom program
+    const prog = p.program ?? "";
+    setIsCustomProgram(!!prog && !PROGRAMS.slice(0, -1).includes(prog));
     setShowDialog(true);
   };
 
   const handleSave = async () => {
-    if (!form.name?.trim() || !form.rollNo?.trim()) {
-      toast({ title: "Name and Roll No are required", variant: "destructive" });
+    if (!form.name?.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
       return;
     }
 
@@ -193,31 +204,94 @@ export default function PlayersPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={o => !o && setShowDialog(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg flex flex-col" style={{ maxHeight: "90vh" }}>
           <DialogHeader>
             <DialogTitle>{editingPlayer ? "Edit Player" : "Add New Player"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+
+          <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
+
+            {/* Name + Roll No */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Name *</Label>
                 <Input value={form.name ?? ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
               </div>
               <div className="space-y-1">
-                <Label>Roll No *</Label>
+                <Label>Roll No</Label>
                 <Input value={form.rollNo ?? ""} onChange={e => setForm(f => ({ ...f, rollNo: e.target.value }))} placeholder="e.g. DW236" />
               </div>
             </div>
 
+            {/* Program + Enrollment No */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Program</Label>
+                <Select
+                  value={isCustomProgram ? "Other" : (form.program || "")}
+                  onValueChange={v => {
+                    if (v === "Other") {
+                      setIsCustomProgram(true);
+                      setForm(f => ({ ...f, program: "" }));
+                    } else {
+                      setIsCustomProgram(false);
+                      setForm(f => ({ ...f, program: v }));
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger>
+                  <SelectContent>
+                    {PROGRAMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {isCustomProgram && (
+                  <Input
+                    value={form.program ?? ""}
+                    onChange={e => setForm(f => ({ ...f, program: e.target.value }))}
+                    placeholder="Enter program name"
+                    className="mt-1"
+                  />
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>Enrollment No.</Label>
+                <Input
+                  value={form.enrollmentNo ?? ""}
+                  onChange={e => setForm(f => ({ ...f, enrollmentNo: e.target.value }))}
+                  placeholder="e.g. 24BCE001"
+                />
+              </div>
+            </div>
+
+            {/* Branch + Class / Year */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Branch</Label>
-                <Select value={form.branch ?? "CE"} onValueChange={v => setForm(f => ({ ...f, branch: v }))}>
+                <Select
+                  value={isCustomBranch ? "Other" : (form.branch ?? "CE")}
+                  onValueChange={v => {
+                    if (v === "Other") {
+                      setIsCustomBranch(true);
+                      setForm(f => ({ ...f, branch: "" }));
+                    } else {
+                      setIsCustomBranch(false);
+                      setForm(f => ({ ...f, branch: v }));
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {BRANCHES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {isCustomBranch && (
+                  <Input
+                    value={form.branch ?? ""}
+                    onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
+                    placeholder="Enter branch name"
+                    className="mt-1"
+                  />
+                )}
               </div>
               <div className="space-y-1">
                 <Label>Class / Year</Label>
@@ -225,11 +299,24 @@ export default function PlayersPage() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label>Division</Label>
-              <Input value={(form as any).division ?? ""} onChange={e => setForm(f => ({ ...f, division: e.target.value } as any))} placeholder="e.g. SA1, FA4, DW2" />
+            {/* Division + Mobile No */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Division</Label>
+                <Input value={form.division ?? ""} onChange={e => setForm(f => ({ ...f, division: e.target.value }))} placeholder="e.g. SA1, FA4, DW2" />
+              </div>
+              <div className="space-y-1">
+                <Label>Mobile No.</Label>
+                <Input
+                  type="tel"
+                  value={form.mobileNo ?? ""}
+                  onChange={e => setForm(f => ({ ...f, mobileNo: e.target.value }))}
+                  placeholder="e.g. 9876543210"
+                />
+              </div>
             </div>
 
+            {/* Rated toggle */}
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div>
                 <p className="font-medium text-sm">Rated Player</p>
@@ -264,7 +351,8 @@ export default function PlayersPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
             <Button onClick={handleSave}>{editingPlayer ? "Save Changes" : "Add Player"}</Button>
           </DialogFooter>

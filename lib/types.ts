@@ -10,6 +10,9 @@ export interface Player {
   class?: string;
   year?: string;
   division?: string;
+  program?: string;        // e.g. B.Tech, BBA, BCA …
+  enrollmentNo?: string;   // Enrollment / admission number
+  mobileNo?: string;       // Contact number
   estimatedElo?: number;
   officialElo?: number | null;
   fideRating?: number | null;

@@ -21,6 +21,9 @@ function rowToPlayer(row: any): Player {
     losses: row.losses,
     draws: row.draws,
     isRated: row.is_rated,
+    program: row.program ?? undefined,
+    enrollmentNo: row.enrollment_no ?? undefined,
+    mobileNo: row.mobile_no ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -41,6 +44,9 @@ function playerToRow(player: Player, userId: string) {
     losses: player.losses,
     draws: player.draws,
     is_rated: player.isRated ?? false,
+    program: player.program ?? null,
+    enrollment_no: player.enrollmentNo ?? null,
+    mobile_no: player.mobileNo ?? null,
     created_at: player.createdAt,
   };
 }
