@@ -460,6 +460,10 @@ export default function PlayersPage() {
         open={showImport}
         onOpenChange={setShowImport}
         onBulkImport={async (batch) => { await bulkAddPlayers(batch); }}
+        onUpdatePlayer={async (id, patch) => {
+          const existing = players.find(p => p.id === id);
+          if (existing) await updatePlayer({ ...existing, ...patch });
+        }}
         existingPlayers={players}
       />
     </div>
