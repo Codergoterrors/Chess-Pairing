@@ -64,8 +64,7 @@ export default function PlayersPage() {
   /** Returns display info for the rating column */
   const getEloDisplay = (p: Player) => {
     const elo = p.officialElo ?? p.fideRating ?? p.estimatedElo ?? null;
-    if (!elo) return { label: "NR", kind: "nr" as const };
-    if (elo < 100) return { label: "NA", kind: "na" as const };
+    if (!elo || elo < 100) return { label: "NR", kind: "nr" as const };
     return { label: String(elo), kind: "ok" as const };
   };
 
@@ -203,8 +202,6 @@ export default function PlayersPage() {
                       <td className="py-3 px-2 text-right font-semibold">
                         {eloDisplay.kind === "nr"
                           ? <span className="text-muted-foreground text-xs">NR</span>
-                          : eloDisplay.kind === "na"
-                          ? <span className="text-amber-500 text-xs font-medium">NA</span>
                           : eloDisplay.label}
                       </td>
                       <td className="py-3 px-2 text-center">
@@ -298,7 +295,7 @@ export default function PlayersPage() {
                         <p className="font-bold text-sm">
                           {val && val >= 100
                             ? val
-                            : <span className="text-muted-foreground font-normal text-xs">NA</span>}
+                            : <span className="text-muted-foreground font-normal text-xs">NR</span>}
                         </p>
                       </div>
                     ))}

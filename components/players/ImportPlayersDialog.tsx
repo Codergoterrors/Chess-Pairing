@@ -248,7 +248,9 @@ function parseCSVFull(text: string): string[][] {
 
 // ─── Extract numeric rating from messy user input ─────────────────
 // Handles: "500", "NA", "na", "No", "Idk", ".", "580 chess.com",
-//          "990 at chess.com", "0", "", "Don't have..."
+//          "990 at chess.com", "0", "8", "", "Don't have..."
+// Only returns a value for ratings >= 100 — anything below that is not
+// a real chess rating and should be treated as "not rated".
 function extractRating(raw: string): number | null {
   const v = raw.trim().toLowerCase();
   // Explicit non-ratings
@@ -257,7 +259,8 @@ function extractRating(raw: string): number | null {
   const m = raw.match(/\d+/);
   if (!m) return null;
   const n = Number(m[0]);
-  return n > 0 ? n : null;  // treat 0 as "no rating"
+  // Minimum real chess rating is ~100; values below that are junk/placeholders
+  return n >= 100 ? n : null;
 }
 
 // ─── Parse all data rows into ParsedRow objects ───────────────────
