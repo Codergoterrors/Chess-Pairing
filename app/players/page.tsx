@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Upload } from "lucide-react";
 import { Player } from "@/lib/types";
+import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
 const BRANCHES = ["CE", "CSE CySec", "CSE AIML", "IT", "ENTC", "ME", "Civil", "Other"];
 
@@ -23,10 +24,11 @@ const emptyForm = (): Partial<Player> => ({
 
 export default function PlayersPage() {
   const { toast } = useToast();
-  const { players, standings, addPlayer, updatePlayer, deletePlayer } = useChessData();
+  const { players, standings, addPlayer, updatePlayer, deletePlayer, bulkAddPlayers } = useChessData();
 
   const [search, setSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [form, setForm] = useState<Partial<Player>>(emptyForm());
 
@@ -101,9 +103,14 @@ export default function PlayersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Player Management</h1>
           <p className="text-muted-foreground mt-1">Manage chess tournament players</p>
         </div>
-        <Button onClick={openAdd} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Player
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowImport(true)} className="gap-2">
+            <Upload className="h-4 w-4" /> Import CSV / Excel
+          </Button>
+          <Button onClick={openAdd} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Player
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -263,6 +270,14 @@ export default function PlayersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <ImportPlayersDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onBulkImport={async (batch) => { await bulkAddPlayers(batch); }}
+        existingRollNos={new Set(players.map(p => p.rollNo))}
+      />
     </div>
   );
 }

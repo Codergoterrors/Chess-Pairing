@@ -193,6 +193,20 @@ export const useChessData = () => {
     }
   }, [user]);
 
+  // Bulk insert many players in one Supabase call (used by CSV/Excel import)
+  const bulkAddPlayers = useCallback(async (newPlayers: Player[]) => {
+    if (!user || newPlayers.length === 0) return;
+    setPlayers(prev => [...prev, ...newPlayers]); // optimistic
+    const rows = newPlayers.map(p => playerToRow(p, user.id));
+    const { error } = await supabase.from("players").insert(rows);
+    if (error) {
+      console.error("bulkAddPlayers:", error);
+      const ids = new Set(newPlayers.map(p => p.id));
+      setPlayers(prev => prev.filter(p => !ids.has(p.id)));
+      throw error;
+    }
+  }, [user]);
+
   const updatePlayer = useCallback(async (player: Player) => {
     if (!user) return;
     setPlayers(prev => prev.map(p => p.id === player.id ? player : p));
@@ -302,7 +316,7 @@ export const useChessData = () => {
 
   return {
     players, tournaments, pairings, standings, isLoaded,
-    addPlayer, updatePlayer, deletePlayer,
+    addPlayer, updatePlayer, deletePlayer, bulkAddPlayers,
     addTournament, updateTournament, deleteTournament,
     addPairing, updatePairing, deletePairing, deletePairingsByRound,
     addStanding, updateStanding,
