@@ -67,7 +67,8 @@ const COLUMN_MAP: Record<string, keyof Player | "_skip"> = {
   istunumber: "enrollmentNo",
   istucode: "enrollmentNo",
   // "ISTU no. / PRN No." combined (Google-Form style)
-  istunoprnnno: "enrollmentNo",
+  // "ISTU no. / PRN No. " → istunoprnno  (11 chars, double-n)
+  istunoprnno: "enrollmentNo",
   istucodeprnno: "enrollmentNo",
   istuprn: "enrollmentNo",
   prnnoistuno: "enrollmentNo",
