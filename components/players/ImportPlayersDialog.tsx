@@ -27,72 +27,152 @@ interface ParsedRow {
   dupReason?: DupReason;
 }
 
-// ─── Column map: header (lowercase, no spaces) → Player field ─────
+// ─── Column map: normalised header → Player field ───────────────
 // Only these fields are imported — everything else is ignored silently.
+// Keys must be lowercase alphanumeric only (see normaliseHeader below).
 const COLUMN_MAP: Record<string, keyof Player | "_skip"> = {
-  // Name
+
+  // ── Name ────────────────────────────────────────────────────────
   name: "name",
   fullname: "name",
   playername: "name",
   studentname: "name",
-  // Roll No
+  candidatename: "name",
+  applicantname: "name",
+  participantname: "name",
+
+  // ── Roll No ─────────────────────────────────────────────────────
   rollno: "rollNo",
-  "roll no": "rollNo",
   rollnumber: "rollNo",
   roll: "rollNo",
-  // Branch / Dept
+  seatno: "rollNo",
+  seatnumber: "rollNo",
+
+  // ── Enrollment / PRN / ISTU / Reg / Admission ───────────────────
+  // Handles: "PRN No.", "PRN", "ISTU Code", "ISTU No",
+  //          "Enrollment No", "Reg No", "Admission No", "Student ID" …
+  enrollment: "enrollmentNo",
+  enrollmentno: "enrollmentNo",
+  enrollmentnumber: "enrollmentNo",
+  enrolno: "enrollmentNo",
+  enrolment: "enrollmentNo",
+  enrolmentno: "enrollmentNo",
+  prn: "enrollmentNo",
+  prnno: "enrollmentNo",
+  prnnumber: "enrollmentNo",
+  prncode: "enrollmentNo",
+  istucode: "enrollmentNo",
+  istuno: "enrollmentNo",
+  istunumber: "enrollmentNo",
+  istu: "enrollmentNo",
+  universityno: "enrollmentNo",
+  universitynumber: "enrollmentNo",
+  universityenrollmentno: "enrollmentNo",
+  universityrollno: "enrollmentNo",
+  admissionno: "enrollmentNo",
+  admissionnumber: "enrollmentNo",
+  admissionid: "enrollmentNo",
+  regno: "enrollmentNo",
+  registrationno: "enrollmentNo",
+  registrationnumber: "enrollmentNo",
+  studentid: "enrollmentNo",
+  studentno: "enrollmentNo",
+  studentcode: "enrollmentNo",
+  studentnumber: "enrollmentNo",
+  uid: "enrollmentNo",
+  uniqueid: "enrollmentNo",
+
+  // ── Branch / Department / Stream ────────────────────────────────
+  // Handles: "Branch", "Dept", "Dept.", "Department", "Stream", "Faculty"
   branch: "branch",
   dept: "branch",
   department: "branch",
-  // Year / Class
+  stream: "branch",
+  faculty: "branch",
+  engineering: "branch",
+  specialization: "branch",
+  specialisation: "branch",
+
+  // ── Year / Class / Semester ─────────────────────────────────────
   year: "year",
   class: "year",
   sem: "year",
   semester: "year",
-  // Division / Section
+  academicyear: "year",
+  studyyear: "year",
+  currentyear: "year",
+
+  // ── Division / Section / Batch ──────────────────────────────────
   division: "division",
   div: "division",
   section: "division",
-  // Program / Course
+  batch: "division",
+  group: "division",
+
+  // ── Program / Course / Degree ───────────────────────────────────
   program: "program",
+  programme: "program",
   course: "program",
-  // Enrollment
-  enrollmentno: "enrollmentNo",
-  "enrollment no": "enrollmentNo",
-  enrollmentnumber: "enrollmentNo",
-  "admission no": "enrollmentNo",
-  admissionno: "enrollmentNo",
-  // Mobile
-  mobileno: "mobileNo",
-  "mobile no": "mobileNo",
+  degree: "program",
+
+  // ── Mobile / Phone / Contact ────────────────────────────────────
+  // Handles: "Mobile No.", "Mobile No", "Phone", "Contact No", "WhatsApp No"
   mobile: "mobileNo",
+  mobileno: "mobileNo",
   mobilenumber: "mobileNo",
   phone: "mobileNo",
+  phoneno: "mobileNo",
   phonenumber: "mobileNo",
   contact: "mobileNo",
-  // Email
+  contactno: "mobileNo",
+  contactnumber: "mobileNo",
+  whatsapp: "mobileNo",
+  whatsappno: "mobileNo",
+  whatsappnumber: "mobileNo",
+  cell: "mobileNo",
+  cellno: "mobileNo",
+  cellnumber: "mobileNo",
+
+  // ── Email ───────────────────────────────────────────────────────
+  // Handles: "Email", "E-mail", "Email ID", "Mail ID"
   email: "email",
+  emailid: "email",
   emailaddress: "email",
-  "e-mail": "email",
-  // Ratings
+  mail: "email",
+  mailid: "email",
+  emailid2: "email",
+
+  // ── Ratings / ELO ───────────────────────────────────────────────
+  // Handles: "ELO", "Rating", "Chess Rating", "Elo Rating", "Official Elo"
+  // Generic "rating" / "elo" → officialElo (best single-column guess)
+  elo: "officialElo",
+  elorating: "officialElo",
+  rating: "officialElo",
+  chessrating: "officialElo",
+  currentrating: "officialElo",
   officialelo: "officialElo",
-  "official elo": "officialElo",
+  officialrating: "officialElo",
   clubrating: "officialElo",
-  "club rating": "officialElo",
+  clubelo: "officialElo",
+  acfrating: "officialElo",
   fiderating: "fideRating",
-  "fide rating": "fideRating",
   fide: "fideRating",
+  fideelo: "fideRating",
+  internationalrating: "fideRating",
   estimatedelo: "estimatedElo",
-  "estimated elo": "estimatedElo",
-  // Rated flag
+  estimatedrating: "estimatedElo",
+  localrating: "estimatedElo",
+
+  // ── Rated flag ──────────────────────────────────────────────────
   israted: "isRated",
-  "is rated": "isRated",
   rated: "isRated",
 };
 
-// Normalise a header string for lookup in COLUMN_MAP
+// Normalise a header string for COLUMN_MAP lookup.
+// Strips ALL non-alphanumeric characters (dots, dashes, #, spaces, slashes…)
+// and lowercases, so "ISTU Code", "PRN No.", "E-mail", "Dept." all resolve.
 function normaliseHeader(h: string): string {
-  return h.toLowerCase().replace(/\s+/g, " ").trim();
+  return h.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 // ─── Proper CSV line parser (handles quoted fields with commas) ────
@@ -440,16 +520,30 @@ export function ImportPlayersDialog({ open, onOpenChange, onBulkImport, existing
             </div>
 
             <div className="text-xs text-muted-foreground space-y-1 border rounded-lg p-3">
-              <p className="font-medium mb-1">Recognised column names (case-insensitive):</p>
-              <div className="flex flex-wrap gap-1">
-                {["name", "rollNo", "program", "branch", "year", "division",
-                  "enrollmentNo", "mobileNo", "email", "officialElo", "fideRating", "estimatedElo",
-                  "isRated"].map(c => (
-                  <Badge key={c} variant="secondary" className="font-mono text-xs">{c}</Badge>
+              <p className="font-medium mb-2">Recognised column names (any spelling, case-insensitive, dots/dashes ignored):</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {([
+                  ["Name",          "Name, Full Name, Student Name"],
+                  ["Roll No",       "Roll No, Roll Number, Seat No"],
+                  ["Enrollment No.","PRN, PRN No., ISTU Code, ISTU No, Enrollment No, Reg No, Admission No, Student ID"],
+                  ["Branch",        "Branch, Dept, Department, Stream, Faculty"],
+                  ["Year",          "Year, Class, Sem, Semester"],
+                  ["Division",      "Division, Section, Batch, Group"],
+                  ["Program",       "Program, Programme, Course, Degree"],
+                  ["Mobile No.",    "Mobile, Mobile No., Phone, Contact, WhatsApp No, Cell"],
+                  ["Email",         "Email, Email ID, E-mail, Mail ID"],
+                  ["Official Elo",  "ELO, Elo Rating, Rating, Chess Rating, Official Elo, Club Rating"],
+                  ["FIDE Rating",   "FIDE, FIDE Rating, FIDE Elo, International Rating"],
+                  ["Est. Elo",      "Estimated Elo, Estimated Rating, Local Rating"],
+                ] as [string, string][]).map(([field, aliases]) => (
+                  <div key={field}>
+                    <span className="font-semibold text-foreground">{field}:</span>{" "}
+                    <span className="text-muted-foreground">{aliases}</span>
+                  </div>
                 ))}
               </div>
               <p className="mt-2 text-amber-600 dark:text-amber-400">
-                ⚠ Any other columns (like Sr. No, remarks, etc.) are automatically ignored.
+                ⚠ Any other columns (Sr. No, Remarks, etc.) are automatically ignored.
               </p>
             </div>
           </div>
