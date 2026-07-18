@@ -272,13 +272,14 @@ function parseRows(
   );
 
   // Lookup sets for existing-player duplicate detection
-  const existingRollNos    = new Set(existingPlayers.map(p => (p.rollNo ?? "").toLowerCase().trim()).filter(Boolean));
-  const existingNameMobile = new Set(existingPlayers.filter(p => p.mobileNo?.trim()).map(p => `${p.name.toLowerCase().trim()}|${p.mobileNo!.trim()}`));
-  const existingNameEmail  = new Set(existingPlayers.filter(p => p.email?.trim()).map(p => `${p.name.toLowerCase().trim()}|${p.email!.trim().toLowerCase()}`));
+  const existingRollNos = new Set(existingPlayers.map(p => (p.rollNo ?? "").toLowerCase().trim()).filter(Boolean));
+  // Mobile and email alone are treated as unique identifiers (no name match required)
+  const existingMobiles = new Set(existingPlayers.map(p => p.mobileNo?.trim()).filter(Boolean) as string[]);
+  const existingEmails  = new Set(existingPlayers.map(p => p.email?.trim().toLowerCase()).filter(Boolean) as string[]);
 
-  // Within-file duplicate tracking
-  const seenNameMobile = new Set<string>();
-  const seenNameEmail  = new Set<string>();
+  // Within-file duplicate tracking — same mobile or same email = same person
+  const seenMobiles = new Set<string>();
+  const seenEmails  = new Set<string>();
 
   return dataRows.map((cols, i) => {
     const raw: Record<string, string> = {};
@@ -375,22 +376,20 @@ function parseRows(
       return row;
     }
 
-    // 2. Name + contact duplicate vs existing DB
-    if ((mobile && existingNameMobile.has(`${nameLower}|${mobile}`)) ||
-        (email  && existingNameEmail.has(`${nameLower}|${email}`))) {
+    // 2. Mobile or email duplicate vs existing DB (name-independent)
+    if ((mobile && existingMobiles.has(mobile)) ||
+        (email  && existingEmails.has(email))) {
       row.dupReason = "name_contact";
       return row;
     }
 
-    // 3. Within-file duplicates
+    // 3. Within-file duplicates — same mobile or same email already seen
     let withinDup = false;
     if (mobile) {
-      const k = `${nameLower}|${mobile}`;
-      if (seenNameMobile.has(k)) withinDup = true; else seenNameMobile.add(k);
+      if (seenMobiles.has(mobile)) withinDup = true; else seenMobiles.add(mobile);
     }
     if (email) {
-      const k = `${nameLower}|${email}`;
-      if (seenNameEmail.has(k)) withinDup = true; else seenNameEmail.add(k);
+      if (seenEmails.has(email)) withinDup = true; else seenEmails.add(email);
     }
     if (withinDup) { row.dupReason = "within_file"; return row; }
 

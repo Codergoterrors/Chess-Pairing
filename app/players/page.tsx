@@ -94,19 +94,19 @@ export default function PlayersPage() {
       return;
     }
 
-    // Duplicate check: same name + (same mobile OR same email) among existing players
-    const nameLower = form.name.trim().toLowerCase();
+    // Duplicate check: same mobile OR same email already exists (name-independent)
+    const mobile = form.mobileNo?.trim();
+    const email  = form.email?.trim().toLowerCase();
     const duplicate = players.find(p => {
       if (editingPlayer && p.id === editingPlayer.id) return false;
-      if (p.name.toLowerCase() !== nameLower) return false;
-      const samePhone = form.mobileNo?.trim() && p.mobileNo?.trim() && form.mobileNo.trim() === p.mobileNo.trim();
-      const sameEmail = form.email?.trim() && p.email?.trim() && form.email.trim().toLowerCase() === p.email.trim().toLowerCase();
-      return !!(samePhone || sameEmail);
+      const sameMobile = mobile && p.mobileNo?.trim() && mobile === p.mobileNo.trim();
+      const sameEmail  = email  && p.email?.trim()  && email  === p.email.trim().toLowerCase();
+      return !!(sameMobile || sameEmail);
     });
     if (duplicate) {
       toast({
         title: "Duplicate player detected",
-        description: `"${duplicate.name}" with the same mobile / email already exists.`,
+        description: `A player with this mobile / email already exists as "${duplicate.name}".`,
         variant: "destructive",
       });
       return;
