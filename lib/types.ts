@@ -13,6 +13,7 @@ export interface Player {
   program?: string;        // e.g. B.Tech, BBA, BCA …
   enrollmentNo?: string;   // Enrollment / admission number
   mobileNo?: string;       // Contact number
+  email?: string;          // Email address
   estimatedElo?: number;
   officialElo?: number | null;
   fideRating?: number | null;

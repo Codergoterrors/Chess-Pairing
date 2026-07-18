@@ -1,368 +1,570 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import * as XLSX from "xlsx";
-import { Player } from "@/lib/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Upload, FileSpreadsheet, Download, CheckCircle,
-  XCircle, AlertCircle, Loader2, ArrowRight, ArrowLeft,
-} from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, Download, RefreshCw } from "lucide-react";
+import { Player } from "@/lib/types";
+import * as XLSX from "xlsx";
 
-// ── Column aliases (lowercase header → Player field) ────────────────────────
-const COLUMN_MAP: Record<string, string> = {
-  name: "name", "full name": "name", "player name": "name",
-  rollno: "rollNo", "roll no": "rollNo", "roll number": "rollNo",
-  branch: "branch",
-  year: "year",
-  division: "division", div: "division",
-  israted: "isRated", "is rated": "isRated", rated: "isRated",
-  officialelo: "officialElo", "official elo": "officialElo", "club rating": "officialElo",
-  fiderating: "fideRating", "fide rating": "fideRating", fide: "fideRating",
-  estimatedelo: "estimatedElo", "estimated elo": "estimatedElo", "estimated rating": "estimatedElo",
-};
-
-interface ParsedRow {
-  raw: Record<string, string>;
-  player: Partial<Player & { year?: string; division?: string }> | null;
-  errors: string[];
-  rowIndex: number;
-}
-
+// ─── Types ────────────────────────────────────────────────────────
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onBulkImport: (players: Player[]) => Promise<void>;
-  existingRollNos: Set<string>;
+  existingPlayers: Player[];            // full list for duplicate checking
 }
 
-// ── Parse raw rows from file into typed ParsedRow objects ───────────────────
-function parseRows(data: Record<string, string>[]): ParsedRow[] {
-  return data.map((raw, i) => {
-    const norm: Record<string, string> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      norm[k.toLowerCase().trim()] = String(v ?? "").trim();
-    }
+type DupReason = "roll_no" | "name_contact" | "within_file";
 
+interface ParsedRow {
+  raw: Record<string, string>;
+  player: Partial<Player> | null;
+  errors: string[];
+  rowIndex: number;
+  dupReason?: DupReason;
+}
+
+// ─── Column map: header (lowercase, no spaces) → Player field ─────
+// Only these fields are imported — everything else is ignored silently.
+const COLUMN_MAP: Record<string, keyof Player | "_skip"> = {
+  // Name
+  name: "name",
+  fullname: "name",
+  playername: "name",
+  studentname: "name",
+  // Roll No
+  rollno: "rollNo",
+  "roll no": "rollNo",
+  rollnumber: "rollNo",
+  roll: "rollNo",
+  // Branch / Dept
+  branch: "branch",
+  dept: "branch",
+  department: "branch",
+  // Year / Class
+  year: "year",
+  class: "year",
+  sem: "year",
+  semester: "year",
+  // Division / Section
+  division: "division",
+  div: "division",
+  section: "division",
+  // Program / Course
+  program: "program",
+  course: "program",
+  // Enrollment
+  enrollmentno: "enrollmentNo",
+  "enrollment no": "enrollmentNo",
+  enrollmentnumber: "enrollmentNo",
+  "admission no": "enrollmentNo",
+  admissionno: "enrollmentNo",
+  // Mobile
+  mobileno: "mobileNo",
+  "mobile no": "mobileNo",
+  mobile: "mobileNo",
+  mobilenumber: "mobileNo",
+  phone: "mobileNo",
+  phonenumber: "mobileNo",
+  contact: "mobileNo",
+  // Email
+  email: "email",
+  emailaddress: "email",
+  "e-mail": "email",
+  // Ratings
+  officialelo: "officialElo",
+  "official elo": "officialElo",
+  clubrating: "officialElo",
+  "club rating": "officialElo",
+  fiderating: "fideRating",
+  "fide rating": "fideRating",
+  fide: "fideRating",
+  estimatedelo: "estimatedElo",
+  "estimated elo": "estimatedElo",
+  // Rated flag
+  israted: "isRated",
+  "is rated": "isRated",
+  rated: "isRated",
+};
+
+// Normalise a header string for lookup in COLUMN_MAP
+function normaliseHeader(h: string): string {
+  return h.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+// ─── Proper CSV line parser (handles quoted fields with commas) ────
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }  // escaped quote
+      else inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// ─── Parse every data row into a ParsedRow ────────────────────────
+function parseRows(
+  headers: string[],
+  dataRows: string[][],
+  existingPlayers: Player[],
+): ParsedRow[] {
+  // Build a mapping: col-index → Player field
+  const colToField: Array<keyof Player | "_skip" | null> = headers.map(h => {
+    const norm = normaliseHeader(h);
+    return COLUMN_MAP[norm] ?? null;   // null = column not recognised → skip silently
+  });
+
+  // Lookup sets for existing-player duplicate detection
+  const existingRollNos = new Set(existingPlayers.map(p => (p.rollNo ?? "").toLowerCase()));
+  const existingNameMobile = new Set(
+    existingPlayers
+      .filter(p => p.mobileNo?.trim())
+      .map(p => `${p.name.toLowerCase().trim()}|${p.mobileNo!.trim()}`)
+  );
+  const existingNameEmail = new Set(
+    existingPlayers
+      .filter(p => p.email?.trim())
+      .map(p => `${p.name.toLowerCase().trim()}|${p.email!.trim().toLowerCase()}`)
+  );
+
+  // Within-file duplicate tracking (name+mobile / name+email)
+  const seenNameMobile = new Set<string>();
+  const seenNameEmail  = new Set<string>();
+
+  return dataRows.map((cols, i) => {
+    const raw: Record<string, string> = {};
+    const player: Partial<Player> = {};
     const errors: string[] = [];
-    const player: Partial<Player> & { year?: string; division?: string } = {};
 
-    for (const [header, field] of Object.entries(COLUMN_MAP)) {
-      const val = norm[header];
-      if (val === undefined) continue;
-      if (field === "name")         player.name = val;
-      else if (field === "rollNo")  player.rollNo = val;
-      else if (field === "branch")  player.branch = val;
-      else if (field === "year")    player.year = val;
-      else if (field === "division") player.division = val;
-      else if (field === "isRated") player.isRated = ["true","yes","1","y"].includes(val.toLowerCase());
-      else if (field === "officialElo")  player.officialElo  = val ? Number(val) || undefined : undefined;
-      else if (field === "fideRating")   player.fideRating   = val ? Number(val) || undefined : undefined;
-      else if (field === "estimatedElo") player.estimatedElo = val ? Number(val) || undefined : undefined;
+    cols.forEach((val, ci) => {
+      const field = colToField[ci];
+      if (!field || field === "_skip" || val === "") return;
+      raw[headers[ci]] = val;
+
+      switch (field) {
+        case "name":
+          // Validate: name must have at least one letter and not be purely numeric
+          if (/^\d+(\.\d+)?$/.test(val)) {
+            errors.push(`Name "${val}" looks like a number — check your column headers`);
+          } else if (val.length < 2) {
+            errors.push("Name is too short");
+          } else if (val.length > 120) {
+            errors.push("Name is too long (>120 chars)");
+          } else {
+            player.name = val;
+          }
+          break;
+
+        case "rollNo":
+          player.rollNo = val;
+          break;
+
+        case "branch":
+        case "year":
+        case "division":
+        case "program":
+        case "enrollmentNo":
+          (player as any)[field] = val;
+          break;
+
+        case "mobileNo":
+          // Validate: mobile should be mostly digits
+          if (!/^\+?[\d\s\-()]{6,15}$/.test(val)) {
+            errors.push(`Mobile "${val}" doesn't look like a phone number`);
+          } else {
+            player.mobileNo = val.replace(/[\s\-()]/g, "");
+          }
+          break;
+
+        case "email":
+          if (!val.includes("@") || val.length < 5) {
+            errors.push(`Email "${val}" doesn't look valid`);
+          } else {
+            player.email = val.toLowerCase();
+          }
+          break;
+
+        case "officialElo":
+        case "fideRating":
+        case "estimatedElo": {
+          const n = Number(val);
+          if (isNaN(n)) {
+            errors.push(`${field} "${val}" is not a number — check column mapping`);
+          } else {
+            (player as any)[field] = n;
+            player.isRated = true;
+          }
+          break;
+        }
+
+        case "isRated":
+          player.isRated = ["true", "yes", "1", "rated"].includes(val.toLowerCase());
+          break;
+      }
+    });
+
+    // Name is required
+    if (!player.name?.trim()) {
+      errors.push("Name is required");
     }
 
-    if (!player.name?.trim())   errors.push("Name is required");
-    if (!player.rollNo?.trim()) errors.push("Roll No is required");
-    if (player.officialElo  !== undefined && isNaN(player.officialElo))  errors.push("Official Elo must be a number");
-    if (player.fideRating   !== undefined && isNaN(player.fideRating))   errors.push("FIDE Rating must be a number");
-    if (player.estimatedElo !== undefined && isNaN(player.estimatedElo)) errors.push("Estimated Elo must be a number");
+    const row: ParsedRow = {
+      raw,
+      player: errors.length === 0 ? player : null,
+      errors,
+      rowIndex: i,
+    };
 
-    return { raw, player: errors.length === 0 ? player : null, errors, rowIndex: i + 2 };
+    if (errors.length > 0) return row;
+
+    const nameLower  = player.name!.toLowerCase().trim();
+    const mobile     = player.mobileNo?.trim() ?? "";
+    const email      = player.email?.trim() ?? "";
+    const rollNoLow  = (player.rollNo ?? "").toLowerCase();
+
+    // 1. Roll-no duplicate against existing DB
+    if (rollNoLow && existingRollNos.has(rollNoLow)) {
+      row.dupReason = "roll_no";
+      return row;
+    }
+
+    // 2. Name + contact duplicate against existing DB
+    const extDup =
+      (mobile && existingNameMobile.has(`${nameLower}|${mobile}`)) ||
+      (email  && existingNameEmail.has(`${nameLower}|${email}`));
+    if (extDup) {
+      row.dupReason = "name_contact";
+      return row;
+    }
+
+    // 3. Within-file duplicate (same name + same contact)
+    let withinDup = false;
+    if (mobile) {
+      const k = `${nameLower}|${mobile}`;
+      if (seenNameMobile.has(k)) withinDup = true;
+      else seenNameMobile.add(k);
+    }
+    if (email) {
+      const k = `${nameLower}|${email}`;
+      if (seenNameEmail.has(k)) withinDup = true;
+      else seenNameEmail.add(k);
+    }
+    if (withinDup) {
+      row.dupReason = "within_file";
+      return row;
+    }
+
+    return row;
   });
 }
 
-// ── Generate & download a template CSV ──────────────────────────────────────
+// ─── Status badge helpers ──────────────────────────────────────────
+function rowStatus(row: ParsedRow): "ready" | "duplicate" | "error" {
+  if (row.errors.length > 0) return "error";
+  if (row.dupReason)          return "duplicate";
+  return "ready";
+}
+
+const STATUS_ICONS = {
+  ready:     <CheckCircle2 className="h-4 w-4 text-green-500" />,
+  duplicate: <AlertCircle  className="h-4 w-4 text-amber-500" />,
+  error:     <XCircle      className="h-4 w-4 text-red-500"   />,
+};
+
+const DUP_LABELS: Record<DupReason, string> = {
+  roll_no:     "Roll No already exists",
+  name_contact:"Duplicate name + contact in DB",
+  within_file: "Duplicate name + contact in file",
+};
+
+// ─── Generate template CSV download ───────────────────────────────
 function downloadTemplate() {
-  const headers = ["name","rollNo","branch","year","division","isRated","officialElo","fideRating","estimatedElo"];
-  const example = ["Rahul Sharma","DW236","CE","SY","SA1","false","","",""];
+  const headers = [
+    "name", "rollNo", "program", "branch", "year", "division",
+    "enrollmentNo", "mobileNo", "email",
+    "officialElo", "fideRating", "estimatedElo",
+  ];
+  const example = [
+    "Rahul Sharma", "DW236", "B.Tech", "CE", "SY", "SA1",
+    "24BCE001", "9876543210", "rahul@example.com",
+    "", "", "",
+  ];
   const csv = [headers.join(","), example.join(",")].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href = url; a.download = "chess_players_template.csv"; a.click();
+  a.href = url; a.download = "players_template.csv"; a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
-export function ImportPlayersDialog({ open, onOpenChange, onBulkImport, existingRollNos }: Props) {
-  const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<"upload" | "preview" | "importing" | "done">("upload");
+// ─── Component ────────────────────────────────────────────────────
+export function ImportPlayersDialog({ open, onOpenChange, onBulkImport, existingPlayers }: Props) {
+  const [step, setStep]           = useState<"upload" | "preview" | "importing" | "done">("upload");
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [fileName, setFileName] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState({ success: 0, failed: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress]   = useState(0);
+  const [importedCount, setImportedCount] = useState(0);
+  const [dragging, setDragging]   = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => {
-    setStep("upload"); setParsedRows([]); setFileName("");
-    setProgress(0); setResult({ success: 0, failed: 0 });
-    if (fileRef.current) fileRef.current.value = "";
-  };
+  const readFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target?.result;
+      let headers: string[] = [];
+      let dataRows: string[][] = [];
 
-  const processFile = async (file: File) => {
-    setFileName(file.name);
-    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
-    try {
-      let data: Record<string, string>[];
-      if (isExcel) {
-        const buffer = await file.arrayBuffer();
-        const wb = XLSX.read(buffer, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(ws, { defval: "" }) as Record<string, string>[];
+      if (file.name.endsWith(".csv")) {
+        const text   = data as string;
+        const lines  = text.split(/\r?\n/).filter(l => l.trim());
+        headers  = parseCSVLine(lines[0]);
+        dataRows = lines.slice(1).map(parseCSVLine);
       } else {
-        const text = await file.text();
-        const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-        if (lines.length < 2) { toast({ title: "File has no data rows", variant: "destructive" }); return; }
-        const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim());
-        data = lines.slice(1).map(line => {
-          const vals = line.split(",").map(v => v.replace(/^"|"$/g, "").trim());
-          return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
-        });
+        const wb = XLSX.read(data, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as string[][];
+        if (rows.length < 2) return;
+        headers  = rows[0].map(String);
+        dataRows = rows.slice(1).map(r => r.map(String));
       }
-      if (!data.length) { toast({ title: "No data found", variant: "destructive" }); return; }
-      setParsedRows(parseRows(data));
+
+      // Filter out completely empty rows
+      dataRows = dataRows.filter(r => r.some(v => v.trim() !== ""));
+
+      const parsed = parseRows(headers, dataRows, existingPlayers);
+      setParsedRows(parsed);
       setStep("preview");
-    } catch (err) {
-      toast({ title: "Failed to parse file", description: String(err), variant: "destructive" });
-    }
-  };
+    };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false);
+    if (file.name.endsWith(".csv")) reader.readAsText(file);
+    else reader.readAsBinaryString(file);
+  }, [existingPlayers]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  const validRows = parsedRows.filter(r => r.player !== null && !existingRollNos.has(r.player?.rollNo ?? ""));
-  const errorCount = parsedRows.filter(r => r.errors.length > 0).length;
-  const dupCount   = parsedRows.filter(r => r.player !== null && existingRollNos.has(r.player?.rollNo ?? "")).length;
+    if (file) readFile(file);
+  }, [readFile]);
 
   const handleImport = async () => {
-    if (!validRows.length) { toast({ title: "No valid rows to import", variant: "destructive" }); return; }
-    setStep("importing");
+    const validRows = parsedRows.filter(r => rowStatus(r) === "ready");
+    if (validRows.length === 0) return;
 
-    const players: Player[] = validRows.map(r => ({
-      ...(r.player as Partial<Player>),
+    setStep("importing");
+    setProgress(0);
+
+    const batch: Player[] = validRows.map(r => ({
+      ...r.player,
       id: crypto.randomUUID(),
       createdAt: Date.now(),
-      gamesPlayed: 0, wins: 0, losses: 0, draws: 0,
-      isRated: r.player?.isRated ?? false,
     } as Player));
 
-    // Batch insert in groups of 10 to show progress
-    const BATCH = 10;
-    let success = 0, failed = 0;
-    for (let i = 0; i < players.length; i += BATCH) {
-      const batch = players.slice(i, i + BATCH);
-      try {
-        await onBulkImport(batch);
-        success += batch.length;
-      } catch { failed += batch.length; }
-      setProgress(Math.round(((i + batch.length) / players.length) * 100));
+    try {
+      // Import in chunks of 50 so progress bar has something to show
+      const CHUNK = 50;
+      let done = 0;
+      for (let i = 0; i < batch.length; i += CHUNK) {
+        await onBulkImport(batch.slice(i, i + CHUNK));
+        done += Math.min(CHUNK, batch.length - i);
+        setProgress(Math.round((done / batch.length) * 100));
+      }
+      setImportedCount(batch.length);
+      setStep("done");
+    } catch {
+      setStep("preview");
     }
-
-    setResult({ success, failed });
-    setStep("done");
   };
 
+  const reset = () => {
+    setStep("upload"); setParsedRows([]); setProgress(0); setImportedCount(0);
+  };
+
+  const ready     = parsedRows.filter(r => rowStatus(r) === "ready").length;
+  const dups      = parsedRows.filter(r => rowStatus(r) === "duplicate").length;
+  const errors    = parsedRows.filter(r => rowStatus(r) === "error").length;
+
   return (
-    <Dialog open={open} onOpenChange={o => { if (!o) reset(); onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={v => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-w-2xl flex flex-col" style={{ maxHeight: "90vh" }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary" />
-            Import Players — CSV / Excel
+            Import Players from CSV / Excel
           </DialogTitle>
           <DialogDescription>
-            {step === "upload"    && "Upload a CSV or Excel file to add multiple players at once"}
-            {step === "preview"   && `${parsedRows.length} rows detected from "${fileName}"`}
-            {step === "importing" && "Saving players to the database…"}
-            {step === "done"      && "Import complete!"}
+            Upload a .csv, .xlsx or .xls file. Only recognised columns are imported; everything else is ignored.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden py-2">
-          {/* ── STEP 1 : UPLOAD ── */}
-          {step === "upload" && (
-            <div className="space-y-4">
-              {/* Drop zone */}
-              <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
-                  isDragging
-                    ? "border-primary bg-primary/5 scale-[1.01]"
-                    : "border-muted-foreground/25 hover:border-primary/60 hover:bg-muted/20"
-                }`}
-                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-              >
-                <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
-                <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold">Drag & drop your file here, or click to browse</p>
-                <p className="text-xs text-muted-foreground mt-1">Supports .CSV · .XLSX · .XLS</p>
-              </div>
+        {/* ── UPLOAD step ── */}
+        {step === "upload" && (
+          <div className="space-y-4 py-2">
+            <div
+              className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer
+                ${dragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"}`}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+              <p className="font-medium">Drop your file here or click to browse</p>
+              <p className="text-sm text-muted-foreground mt-1">Supports .csv, .xlsx, .xls</p>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                accept=".csv,.xlsx,.xls"
+                onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f); }}
+              />
+            </div>
 
-              {/* Info box */}
-              <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
-                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                <div className="text-sm space-y-1">
-                  <p className="font-medium">
-                    Required columns:{" "}
-                    <code className="text-xs bg-muted px-1 rounded">name</code>{" "}
-                    <code className="text-xs bg-muted px-1 rounded">rollNo</code>
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    Optional: branch · year · division · isRated (true/false) · officialElo · fideRating · estimatedElo
-                  </p>
-                </div>
-              </div>
-
-              {/* Template download */}
-              <Button variant="outline" className="w-full gap-2" onClick={downloadTemplate}>
-                <Download className="h-4 w-4" />
-                Download Template CSV
+            <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">
+              <span>Not sure about the format?</span>
+              <Button variant="ghost" size="sm" className="gap-1.5 h-7" onClick={downloadTemplate}>
+                <Download className="h-3.5 w-3.5" /> Download Template
               </Button>
             </div>
-          )}
 
-          {/* ── STEP 2 : PREVIEW ── */}
-          {step === "preview" && (
-            <div className="space-y-3">
-              {/* Summary badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge className="gap-1 bg-green-500/10 text-green-600 border border-green-500/30 hover:bg-green-500/10">
-                  <CheckCircle className="h-3 w-3" /> {validRows.length} ready to import
+            <div className="text-xs text-muted-foreground space-y-1 border rounded-lg p-3">
+              <p className="font-medium mb-1">Recognised column names (case-insensitive):</p>
+              <div className="flex flex-wrap gap-1">
+                {["name", "rollNo", "program", "branch", "year", "division",
+                  "enrollmentNo", "mobileNo", "email", "officialElo", "fideRating", "estimatedElo",
+                  "isRated"].map(c => (
+                  <Badge key={c} variant="secondary" className="font-mono text-xs">{c}</Badge>
+                ))}
+              </div>
+              <p className="mt-2 text-amber-600 dark:text-amber-400">
+                ⚠ Any other columns (like Sr. No, remarks, etc.) are automatically ignored.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── PREVIEW step ── */}
+        {step === "preview" && (
+          <div className="flex flex-col gap-3 min-h-0 flex-1">
+            {/* Summary badges */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Badge className="gap-1 bg-green-500/15 text-green-600 border-green-500/30">
+                <CheckCircle2 className="h-3 w-3" /> {ready} ready
+              </Badge>
+              {dups > 0 && (
+                <Badge className="gap-1 bg-amber-500/15 text-amber-600 border-amber-500/30">
+                  <AlertCircle className="h-3 w-3" /> {dups} duplicate (skip)
                 </Badge>
-                {dupCount > 0 && (
-                  <Badge className="gap-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 hover:bg-amber-500/10">
-                    <AlertCircle className="h-3 w-3" /> {dupCount} duplicate (will be skipped)
-                  </Badge>
-                )}
-                {errorCount > 0 && (
-                  <Badge className="gap-1 bg-red-500/10 text-red-600 border border-red-500/30 hover:bg-red-500/10">
-                    <XCircle className="h-3 w-3" /> {errorCount} invalid (will be skipped)
-                  </Badge>
-                )}
-              </div>
-
-              {/* Preview table */}
-              <ScrollArea className="h-[340px] border rounded-lg">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-background border-b z-10">
-                    <tr>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-12">#</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Roll No</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Branch</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Year</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedRows.map(row => {
-                      const isDup = row.player !== null && existingRollNos.has(row.player?.rollNo ?? "");
-                      const hasErr = row.errors.length > 0;
-                      return (
-                        <tr
-                          key={row.rowIndex}
-                          className={`border-b transition-colors ${
-                            hasErr ? "bg-red-500/5"
-                            : isDup ? "bg-amber-500/5"
-                            : "hover:bg-muted/30"
-                          }`}
-                        >
-                          <td className="px-3 py-2 text-muted-foreground">{row.rowIndex}</td>
-                          <td className="px-3 py-2 font-medium">{row.player?.name || <span className="text-red-500 italic">missing</span>}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{row.player?.rollNo || <span className="text-red-500 italic">missing</span>}</td>
-                          <td className="px-3 py-2">{row.player?.branch || "—"}</td>
-                          <td className="px-3 py-2">{(row.player as any)?.year || "—"}</td>
-                          <td className="px-3 py-2">
-                            {hasErr ? (
-                              <span className="text-red-500 flex items-center gap-1">
-                                <XCircle className="h-3 w-3 shrink-0" /> {row.errors[0]}
-                              </span>
-                            ) : isDup ? (
-                              <span className="text-amber-500 flex items-center gap-1">
-                                <AlertCircle className="h-3 w-3 shrink-0" /> Already exists
-                              </span>
-                            ) : (
-                              <span className="text-green-500 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3 shrink-0" /> Ready
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </ScrollArea>
+              )}
+              {errors > 0 && (
+                <Badge className="gap-1 bg-red-500/15 text-red-600 border-red-500/30">
+                  <XCircle className="h-3 w-3" /> {errors} error (skip)
+                </Badge>
+              )}
             </div>
-          )}
 
-          {/* ── STEP 3 : IMPORTING ── */}
-          {step === "importing" && (
-            <div className="flex flex-col items-center justify-center py-14 gap-5">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="font-semibold text-lg">Importing {validRows.length} players…</p>
-              <div className="w-full max-w-xs space-y-2">
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-center text-muted-foreground">{progress}% complete</p>
-              </div>
+            {/* Preview table */}
+            <div className="overflow-auto flex-1 border rounded-lg">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/60 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">#</th>
+                    <th className="text-left px-3 py-2 font-medium">Status</th>
+                    <th className="text-left px-3 py-2 font-medium">Name</th>
+                    <th className="text-left px-3 py-2 font-medium">Roll No</th>
+                    <th className="text-left px-3 py-2 font-medium">Branch</th>
+                    <th className="text-left px-3 py-2 font-medium">Program</th>
+                    <th className="text-left px-3 py-2 font-medium">Mobile</th>
+                    <th className="text-left px-3 py-2 font-medium">Email</th>
+                    <th className="text-left px-3 py-2 font-medium">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsedRows.map((row, i) => {
+                    const status = rowStatus(row);
+                    const p = row.player ?? {};
+                    return (
+                      <tr
+                        key={i}
+                        className={`border-b last:border-0 ${
+                          status === "ready"     ? ""
+                          : status === "duplicate" ? "bg-amber-500/5"
+                          : "bg-red-500/5"
+                        }`}
+                      >
+                        <td className="px-3 py-2 text-muted-foreground">{row.rowIndex + 1}</td>
+                        <td className="px-3 py-2">{STATUS_ICONS[status]}</td>
+                        <td className="px-3 py-2 font-medium max-w-[120px] truncate">
+                          {(p as any).name ?? <span className="text-muted-foreground italic">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{(p as any).rollNo ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{(p as any).branch ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{(p as any).program ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{(p as any).mobileNo ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground max-w-[120px] truncate">{(p as any).email ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs max-w-[160px]">
+                          {status === "error"     && <span className="text-red-500">{row.errors.join("; ")}</span>}
+                          {status === "duplicate" && row.dupReason && <span className="text-amber-600">{DUP_LABELS[row.dupReason]}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* ── STEP 4 : DONE ── */}
-          {step === "done" && (
-            <div className="flex flex-col items-center justify-center py-14 gap-4">
-              <div className="h-20 w-20 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-11 w-11 text-green-500" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className="text-2xl font-bold">{result.success} Players Imported!</p>
-                {result.failed > 0 && (
-                  <p className="text-sm text-destructive">{result.failed} players failed to save</p>
-                )}
-                <p className="text-sm text-muted-foreground mt-2">
-                  They are now available to add to any tournament.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* ── IMPORTING step ── */}
+        {step === "importing" && (
+          <div className="py-8 text-center space-y-4">
+            <RefreshCw className="h-10 w-10 mx-auto animate-spin text-primary" />
+            <p className="font-medium">Importing players…</p>
+            <Progress value={progress} className="max-w-sm mx-auto" />
+            <p className="text-sm text-muted-foreground">{progress}% complete</p>
+          </div>
+        )}
 
-        <DialogFooter className="border-t pt-4">
+        {/* ── DONE step ── */}
+        {step === "done" && (
+          <div className="py-8 text-center space-y-3">
+            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
+            <p className="text-lg font-semibold">Import Complete!</p>
+            <p className="text-muted-foreground">{importedCount} player{importedCount !== 1 ? "s" : ""} added successfully.</p>
+            {dups > 0 && <p className="text-sm text-amber-600">{dups} duplicate{dups !== 1 ? "s" : ""} were skipped.</p>}
+            {errors > 0 && <p className="text-sm text-red-500">{errors} row{errors !== 1 ? "s" : ""} with errors were skipped.</p>}
+          </div>
+        )}
+
+        <DialogFooter className="border-t pt-3">
           {step === "upload" && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           )}
           {step === "preview" && (
             <>
-              <Button variant="outline" className="gap-1" onClick={reset}>
-                <ArrowLeft className="h-4 w-4" /> Back
-              </Button>
-              <Button onClick={handleImport} disabled={validRows.length === 0} className="gap-1">
-                Import {validRows.length} Players <ArrowRight className="h-4 w-4" />
+              <Button variant="outline" onClick={reset}>← Back</Button>
+              <Button onClick={handleImport} disabled={ready === 0}>
+                Import {ready} Player{ready !== 1 ? "s" : ""}
               </Button>
             </>
           )}
           {step === "done" && (
-            <Button onClick={() => { reset(); onOpenChange(false); }}>Close</Button>
+            <>
+              <Button variant="outline" onClick={reset}>Import More</Button>
+              <Button onClick={() => { reset(); onOpenChange(false); }}>Done</Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

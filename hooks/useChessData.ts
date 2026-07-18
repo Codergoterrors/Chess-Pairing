@@ -13,6 +13,8 @@ function rowToPlayer(row: any): Player {
     rollNo: row.roll_no,
     branch: row.branch,
     class: row.class,
+    year: row.year ?? undefined,
+    division: row.division ?? undefined,
     estimatedElo: row.estimated_elo ?? undefined,
     officialElo: row.official_elo ?? undefined,
     fideRating: row.fide_rating ?? undefined,
@@ -24,6 +26,7 @@ function rowToPlayer(row: any): Player {
     program: row.program ?? undefined,
     enrollmentNo: row.enrollment_no ?? undefined,
     mobileNo: row.mobile_no ?? undefined,
+    email: row.email ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -36,6 +39,8 @@ function playerToRow(player: Player, userId: string) {
     roll_no: player.rollNo,
     branch: player.branch,
     class: player.class,
+    year: player.year ?? null,
+    division: player.division ?? null,
     estimated_elo: player.estimatedElo ?? null,
     official_elo: player.officialElo ?? null,
     fide_rating: player.fideRating ?? null,
@@ -47,6 +52,7 @@ function playerToRow(player: Player, userId: string) {
     program: player.program ?? null,
     enrollment_no: player.enrollmentNo ?? null,
     mobile_no: player.mobileNo ?? null,
+    email: player.email ?? null,
     created_at: player.createdAt,
   };
 }

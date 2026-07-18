@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Upload } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Upload, Eye } from "lucide-react";
 import { Player } from "@/lib/types";
 import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
@@ -21,7 +21,7 @@ const PROGRAMS = ["B.Tech", "BBA", "BCA", "MBA", "B.Sc", "BCS", "B.Com", "Other"
 const emptyForm = (): Partial<Player> => ({
   name: "", rollNo: "", branch: "CE", year: "", isRated: false,
   officialElo: undefined, fideRating: undefined, estimatedElo: undefined,
-  program: "", enrollmentNo: "", mobileNo: "",
+  program: "", enrollmentNo: "", mobileNo: "", email: "", division: "",
 });
 
 export default function PlayersPage() {
@@ -31,6 +31,8 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showView, setShowView] = useState(false);
+  const [viewingPlayer, setViewingPlayer] = useState<Player | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [form, setForm] = useState<Partial<Player>>(emptyForm());
   const [isCustomBranch, setIsCustomBranch] = useState(false);
@@ -55,12 +57,19 @@ export default function PlayersPage() {
   const filtered = useMemo(() =>
     players.filter(p =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.rollNo.toLowerCase().includes(search.toLowerCase()) ||
-      p.branch?.toLowerCase().includes(search.toLowerCase())
+      (p.rollNo ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.branch ?? "").toLowerCase().includes(search.toLowerCase())
     ), [players, search]);
 
-  const getElo = (p: Player) =>
-    p.officialElo ?? p.fideRating ?? p.estimatedElo ?? null;
+  /** Returns display info for the rating column */
+  const getEloDisplay = (p: Player) => {
+    const elo = p.officialElo ?? p.fideRating ?? p.estimatedElo ?? null;
+    if (!elo) return { label: "NR", kind: "nr" as const };
+    if (elo < 100) return { label: "NA", kind: "na" as const };
+    return { label: String(elo), kind: "ok" as const };
+  };
+
+  const openView = (p: Player) => { setViewingPlayer(p); setShowView(true); };
 
   const openAdd = () => {
     setEditingPlayer(null);
@@ -73,9 +82,7 @@ export default function PlayersPage() {
   const openEdit = (p: Player) => {
     setEditingPlayer(p);
     setForm({ ...p });
-    // Detect custom branch (value not in the standard list)
     setIsCustomBranch(!!p.branch && !BRANCHES.slice(0, -1).includes(p.branch as string));
-    // Detect custom program
     const prog = p.program ?? "";
     setIsCustomProgram(!!prog && !PROGRAMS.slice(0, -1).includes(prog));
     setShowDialog(true);
@@ -87,15 +94,29 @@ export default function PlayersPage() {
       return;
     }
 
+    // Duplicate check: same name + (same mobile OR same email) among existing players
+    const nameLower = form.name.trim().toLowerCase();
+    const duplicate = players.find(p => {
+      if (editingPlayer && p.id === editingPlayer.id) return false;
+      if (p.name.toLowerCase() !== nameLower) return false;
+      const samePhone = form.mobileNo?.trim() && p.mobileNo?.trim() && form.mobileNo.trim() === p.mobileNo.trim();
+      const sameEmail = form.email?.trim() && p.email?.trim() && form.email.trim().toLowerCase() === p.email.trim().toLowerCase();
+      return !!(samePhone || sameEmail);
+    });
+    if (duplicate) {
+      toast({
+        title: "Duplicate player detected",
+        description: `"${duplicate.name}" with the same mobile / email already exists.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (editingPlayer) {
       await updatePlayer({ ...editingPlayer, ...form } as Player);
       toast({ title: "Player updated!" });
     } else {
-      await addPlayer({
-        ...form,
-        id: crypto.randomUUID(),
-        createdAt: Date.now(),
-      } as Player);
+      await addPlayer({ ...form, id: crypto.randomUUID(), createdAt: Date.now() } as Player);
       toast({ title: "Player added!" });
     }
     setShowDialog(false);
@@ -109,6 +130,7 @@ export default function PlayersPage() {
 
   return (
     <div className="container mx-auto py-10">
+      {/* ── Page Header ── */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Player Management</h1>
@@ -124,6 +146,7 @@ export default function PlayersPage() {
         </div>
       </div>
 
+      {/* ── Players Table ── */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -159,22 +182,30 @@ export default function PlayersPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No players found</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No players found</td></tr>
                 )}
                 {filtered.map(p => {
-                  const elo = getElo(p);
+                  const eloDisplay = getEloDisplay(p);
                   const stats = playerStats.get(p.id);
                   return (
-                    <tr key={p.id} className="border-b hover:bg-secondary/30 transition-colors">
-                      <td className="py-3 px-2 font-semibold">{p.name}</td>
-                      <td className="py-3 px-2 text-muted-foreground">{p.rollNo}</td>
+                    <tr
+                      key={p.id}
+                      className="border-b hover:bg-secondary/30 transition-colors cursor-pointer"
+                      onClick={() => openView(p)}
+                    >
+                      <td className="py-3 px-2 font-semibold text-primary">{p.name}</td>
+                      <td className="py-3 px-2 text-muted-foreground">{p.rollNo || "—"}</td>
                       <td className="py-3 px-2">
                         <Badge variant="outline" className="text-xs">{p.branch}</Badge>
                       </td>
-                      <td className="py-3 px-2 text-muted-foreground text-xs">{(p as any).year || "—"}</td>
-                      <td className="py-3 px-2 text-muted-foreground text-xs">{(p as any).division || "—"}</td>
+                      <td className="py-3 px-2 text-muted-foreground text-xs">{p.year || "—"}</td>
+                      <td className="py-3 px-2 text-muted-foreground text-xs">{p.division || "—"}</td>
                       <td className="py-3 px-2 text-right font-semibold">
-                        {elo ? elo : <span className="text-muted-foreground text-xs">NR</span>}
+                        {eloDisplay.kind === "nr"
+                          ? <span className="text-muted-foreground text-xs">NR</span>
+                          : eloDisplay.kind === "na"
+                          ? <span className="text-amber-500 text-xs font-medium">NA</span>
+                          : eloDisplay.label}
                       </td>
                       <td className="py-3 px-2 text-center">
                         <span className="text-green-500 font-semibold">{stats?.wins ?? 0}W</span>
@@ -183,12 +214,16 @@ export default function PlayersPage() {
                         <span className="text-muted-foreground"> / </span>
                         <span className="text-blue-500 font-semibold">{stats?.draws ?? 0}D</span>
                       </td>
-                      <td className="py-3 px-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                      {/* Stop propagation so row click doesn't trigger while clicking buttons */}
+                      <td className="py-3 px-2 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="View details" onClick={() => openView(p)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit player" onClick={() => openEdit(p)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(p.id, p.name)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" title="Delete player" onClick={() => handleDelete(p.id, p.name)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -202,7 +237,105 @@ export default function PlayersPage() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
+      {/* ══════════════════════════════════════════════
+          VIEW Player Dialog (click on any row)
+      ══════════════════════════════════════════════ */}
+      <Dialog open={showView} onOpenChange={setShowView}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg flex-shrink-0">
+                {viewingPlayer?.name?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div>
+                <p>{viewingPlayer?.name}</p>
+                {(viewingPlayer?.program || viewingPlayer?.branch) && (
+                  <p className="text-xs font-normal text-muted-foreground">
+                    {[viewingPlayer.program, viewingPlayer.branch].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </div>
+            </DialogTitle>
+            <DialogDescription>Full player profile</DialogDescription>
+          </DialogHeader>
+
+          {viewingPlayer && (() => {
+            const stats = playerStats.get(viewingPlayer.id);
+            const details = [
+              { label: "Roll No",       value: viewingPlayer.rollNo    || "—" },
+              { label: "Enrollment No.", value: viewingPlayer.enrollmentNo || "—" },
+              { label: "Branch",        value: viewingPlayer.branch    || "—" },
+              { label: "Year / Class",  value: viewingPlayer.year      || "—" },
+              { label: "Division",      value: viewingPlayer.division  || "—" },
+              { label: "Program",       value: viewingPlayer.program   || "—" },
+              { label: "Mobile No.",    value: viewingPlayer.mobileNo  || "—" },
+              { label: "Email",         value: viewingPlayer.email     || "—" },
+            ];
+            const ratings = [
+              { label: "Official", val: viewingPlayer.officialElo },
+              { label: "FIDE",     val: viewingPlayer.fideRating },
+              { label: "Estimated", val: viewingPlayer.estimatedElo },
+            ];
+            return (
+              <div className="space-y-4 mt-1">
+                {/* Personal details grid */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {details.map(({ label, value }) => (
+                    <div key={label}>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="font-medium break-all">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Ratings */}
+                <div className="border-t pt-3">
+                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">Ratings</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {ratings.map(({ label, val }) => (
+                      <div key={label} className="bg-muted/50 rounded-lg p-2.5 text-center">
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                        <p className="font-bold text-sm">
+                          {val && val >= 100
+                            ? val
+                            : <span className="text-muted-foreground font-normal text-xs">NA</span>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tournament stats */}
+                <div className="border-t pt-3">
+                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">Tournament Stats</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: "Wins",   value: stats?.wins   ?? 0, cls: "text-green-500" },
+                      { label: "Losses", value: stats?.losses ?? 0, cls: "text-red-500"   },
+                      { label: "Draws",  value: stats?.draws  ?? 0, cls: "text-blue-500"  },
+                      { label: "Games",  value: stats?.games  ?? 0, cls: "text-foreground" },
+                    ].map(({ label, value, cls }) => (
+                      <div key={label} className="bg-muted/50 rounded-lg p-2.5 text-center">
+                        <p className={`font-bold text-sm ${cls}`}>{value}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setShowView(false)}>Close</Button>
+            <Button onClick={() => { setShowView(false); openEdit(viewingPlayer!); }}>Edit Player</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════
+          ADD / EDIT Dialog
+      ══════════════════════════════════════════════ */}
       <Dialog open={showDialog} onOpenChange={o => !o && setShowDialog(false)}>
         <DialogContent className="max-w-lg flex flex-col" style={{ maxHeight: "90vh" }}>
           <DialogHeader>
@@ -230,13 +363,8 @@ export default function PlayersPage() {
                 <Select
                   value={isCustomProgram ? "Other" : (form.program || "")}
                   onValueChange={v => {
-                    if (v === "Other") {
-                      setIsCustomProgram(true);
-                      setForm(f => ({ ...f, program: "" }));
-                    } else {
-                      setIsCustomProgram(false);
-                      setForm(f => ({ ...f, program: v }));
-                    }
+                    if (v === "Other") { setIsCustomProgram(true); setForm(f => ({ ...f, program: "" })); }
+                    else { setIsCustomProgram(false); setForm(f => ({ ...f, program: v })); }
                   }}
                 >
                   <SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger>
@@ -245,21 +373,12 @@ export default function PlayersPage() {
                   </SelectContent>
                 </Select>
                 {isCustomProgram && (
-                  <Input
-                    value={form.program ?? ""}
-                    onChange={e => setForm(f => ({ ...f, program: e.target.value }))}
-                    placeholder="Enter program name"
-                    className="mt-1"
-                  />
+                  <Input value={form.program ?? ""} onChange={e => setForm(f => ({ ...f, program: e.target.value }))} placeholder="Enter program name" className="mt-1" />
                 )}
               </div>
               <div className="space-y-1">
                 <Label>Enrollment No.</Label>
-                <Input
-                  value={form.enrollmentNo ?? ""}
-                  onChange={e => setForm(f => ({ ...f, enrollmentNo: e.target.value }))}
-                  placeholder="e.g. 24BCE001"
-                />
+                <Input value={form.enrollmentNo ?? ""} onChange={e => setForm(f => ({ ...f, enrollmentNo: e.target.value }))} placeholder="e.g. 24BCE001" />
               </div>
             </div>
 
@@ -270,13 +389,8 @@ export default function PlayersPage() {
                 <Select
                   value={isCustomBranch ? "Other" : (form.branch ?? "CE")}
                   onValueChange={v => {
-                    if (v === "Other") {
-                      setIsCustomBranch(true);
-                      setForm(f => ({ ...f, branch: "" }));
-                    } else {
-                      setIsCustomBranch(false);
-                      setForm(f => ({ ...f, branch: v }));
-                    }
+                    if (v === "Other") { setIsCustomBranch(true); setForm(f => ({ ...f, branch: "" })); }
+                    else { setIsCustomBranch(false); setForm(f => ({ ...f, branch: v })); }
                   }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -285,12 +399,7 @@ export default function PlayersPage() {
                   </SelectContent>
                 </Select>
                 {isCustomBranch && (
-                  <Input
-                    value={form.branch ?? ""}
-                    onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
-                    placeholder="Enter branch name"
-                    className="mt-1"
-                  />
+                  <Input value={form.branch ?? ""} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))} placeholder="Enter branch name" className="mt-1" />
                 )}
               </div>
               <div className="space-y-1">
@@ -299,7 +408,7 @@ export default function PlayersPage() {
               </div>
             </div>
 
-            {/* Division + Mobile No */}
+            {/* Division + Mobile */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Division</Label>
@@ -307,13 +416,14 @@ export default function PlayersPage() {
               </div>
               <div className="space-y-1">
                 <Label>Mobile No.</Label>
-                <Input
-                  type="tel"
-                  value={form.mobileNo ?? ""}
-                  onChange={e => setForm(f => ({ ...f, mobileNo: e.target.value }))}
-                  placeholder="e.g. 9876543210"
-                />
+                <Input type="tel" value={form.mobileNo ?? ""} onChange={e => setForm(f => ({ ...f, mobileNo: e.target.value }))} placeholder="e.g. 9876543210" />
               </div>
+            </div>
+
+            {/* Email */}
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <Input type="email" value={form.email ?? ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="e.g. player@example.com" />
             </div>
 
             {/* Rated toggle */}
@@ -322,31 +432,18 @@ export default function PlayersPage() {
                 <p className="font-medium text-sm">Rated Player</p>
                 <p className="text-xs text-muted-foreground">Has an official chess rating</p>
               </div>
-              <Switch
-                checked={form.isRated ?? false}
-                onCheckedChange={v => setForm(f => ({ ...f, isRated: v }))}
-              />
+              <Switch checked={form.isRated ?? false} onCheckedChange={v => setForm(f => ({ ...f, isRated: v }))} />
             </div>
 
             {form.isRated && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Official Elo</Label>
-                  <Input
-                    type="number"
-                    value={form.officialElo ?? ""}
-                    onChange={e => setForm(f => ({ ...f, officialElo: e.target.value ? Number(e.target.value) : undefined }))}
-                    placeholder="e.g. 1200"
-                  />
+                  <Input type="number" value={form.officialElo ?? ""} onChange={e => setForm(f => ({ ...f, officialElo: e.target.value ? Number(e.target.value) : undefined }))} placeholder="e.g. 1200" />
                 </div>
                 <div className="space-y-1">
                   <Label>FIDE Rating</Label>
-                  <Input
-                    type="number"
-                    value={form.fideRating ?? ""}
-                    onChange={e => setForm(f => ({ ...f, fideRating: e.target.value ? Number(e.target.value) : undefined }))}
-                    placeholder="e.g. 1500"
-                  />
+                  <Input type="number" value={form.fideRating ?? ""} onChange={e => setForm(f => ({ ...f, fideRating: e.target.value ? Number(e.target.value) : undefined }))} placeholder="e.g. 1500" />
                 </div>
               </div>
             )}
@@ -359,12 +456,14 @@ export default function PlayersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog */}
+      {/* ══════════════════════════════════════════════
+          IMPORT Dialog
+      ══════════════════════════════════════════════ */}
       <ImportPlayersDialog
         open={showImport}
         onOpenChange={setShowImport}
         onBulkImport={async (batch) => { await bulkAddPlayers(batch); }}
-        existingRollNos={new Set(players.map(p => p.rollNo))}
+        existingPlayers={players}
       />
     </div>
   );
