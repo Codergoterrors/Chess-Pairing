@@ -15,11 +15,12 @@ import { StandingsTable } from "@/components/tournaments/standings-table";
 import { ExportStandings } from "@/components/tournaments/export-standings";
 import { AddPlayerDialog } from "@/components/tournaments/add-player-dialog";
 import { TimeControlDialog } from "@/components/tournaments/time-control-dialog";
+import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEntryDialog";
 import { generateSwissPairings } from "@/lib/pairing-algorithm";
-import { Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
+import { Player, Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCurrentRating } from "@/lib/utils-chess";
-import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import Link from "next/link";
 
 // ─── Recalculate standings from scratch from ALL completed pairings ───────────
@@ -96,13 +97,15 @@ function recalculateStandingsFromScratch(
 export default function TournamentDetailPage() {
   const { id } = useParams();
   const { toast } = useToast();
-  const { players, tournaments, pairings, standings, isLoaded, updateTournament, addPairing, updatePairing, deletePairing, addStanding, updateStanding } =
-    useChessData();
+  const { players, tournaments, pairings, standings, isLoaded,
+    addPlayer, updateTournament, addPairing, updatePairing, deletePairing,
+    addStanding, updateStanding } = useChessData();
 
   const [currentRound, setCurrentRound] = useState(1);
   const [isGeneratingPairings, setIsGeneratingPairings] = useState(false);
   const [showTimeControlDialog, setShowTimeControlDialog] = useState(false);
   const [showManualResultDialog, setShowManualResultDialog] = useState(false);
+  const [showSpotEntry, setShowSpotEntry] = useState(false);
   const [manualPlayer1, setManualPlayer1] = useState("");
   const [manualPlayer2, setManualPlayer2] = useState("");
   const [manualResult, setManualResult] = useState<"win1" | "win2" | "draw">("win1");
@@ -236,7 +239,130 @@ export default function TournamentDetailPage() {
     const allPairingsUpdated = tournamentPairings.map(p => p.id === pairingId ? updatedPairing : p);
     pushRecalculatedStandings(allPairingsUpdated);
 
-    toast({ title: "Result recorded" });
+    // ── Fix: if future rounds were already generated, clear them so they
+    //    can be regenerated using the now-corrected standings.
+    const thisRound = pairing.roundNumber;
+    const futurePairings = tournamentPairings.filter(p => p.roundNumber > thisRound);
+
+    if (futurePairings.length > 0) {
+      const futureWithResults = futurePairings.filter(p => p.result);
+      if (futureWithResults.length === 0) {
+        // All future pairings are unplayed — safe to delete and regenerate
+        futurePairings.forEach(p => deletePairing(p.id));
+        if (tournament) {
+          updateTournament({ ...tournament, currentRound: thisRound });
+        }
+        toast({
+          title: "Result updated ✓",
+          description: `Round ${thisRound + 1} pairings cleared. Regenerate them to use the corrected standings.`,
+        });
+      } else {
+        toast({
+          title: "Result updated ✓",
+          description: `⚠ Rounds after Round ${thisRound} already have results — standings corrected but pairings unchanged.`,
+        });
+      }
+    } else {
+      toast({ title: "Result recorded" });
+    }
+  };
+
+  // ── Spot Entry ────────────────────────────────────────────────────────────
+  const handleSpotEntry = async (existingIds: string[], newDrafts: NewPlayerDraft[]) => {
+    if (!tournament) return;
+
+    // 1. Build and register brand-new players
+    const newPlayerObjects: Player[] = newDrafts.map(d => ({
+      id: crypto.randomUUID(),
+      name: d.name, rollNo: d.rollNo, branch: d.branch,
+      year: d.year || undefined, division: d.division || undefined,
+      program: d.program || undefined, enrollmentNo: d.enrollmentNo || undefined,
+      mobileNo: d.mobileNo || undefined, email: d.email || undefined,
+      isRated: d.isRated,
+      officialElo: d.officialElo && d.officialElo >= 100 ? d.officialElo : undefined,
+      wins: 0, losses: 0, draws: 0, gamesPlayed: 0,
+      createdAt: Date.now(),
+    }));
+
+    for (const np of newPlayerObjects) await addPlayer(np);
+
+    const allNewIds = [...existingIds, ...newPlayerObjects.map(p => p.id)];
+
+    // Gather Player objects for catch-up pairing generation
+    const existingPlayerObjects = players.filter(p => existingIds.includes(p.id));
+    const allNewPlayerObjects: Player[] = [...existingPlayerObjects, ...newPlayerObjects];
+
+    // 2. Add to tournament + create standings at 0
+    await updateTournament({ ...tournament, players: [...tournament.players, ...allNewIds] });
+    for (const p of allNewPlayerObjects) {
+      await addStanding({
+        playerId: p.id, tournamentId: tournament.id,
+        score: 0, buchholz: 0, rating: calculateCurrentRating(p),
+        wins: 0, losses: 0, draws: 0, gamesPlayed: 0,
+      });
+    }
+
+    // 3. Generate catch-up pairings (rounds 1 … currentRound-1)
+    const catchUpRounds = tournament.currentRound - 1;
+
+    if (catchUpRounds <= 0) {
+      // Round 1 is current — clear unplayed round-1 pairings so they regenerate with everyone
+      const round1 = tournamentPairings.filter(p => p.roundNumber === 1);
+      if (round1.length > 0 && round1.every(p => !p.result)) {
+        round1.forEach(p => deletePairing(p.id));
+        toast({
+          title: "Spot Entry complete!",
+          description: `${allNewIds.length} player(s) added. Round 1 pairings cleared — regenerate them to include everyone.`,
+        });
+      } else {
+        toast({
+          title: "Spot Entry complete!",
+          description: `${allNewIds.length} player(s) added. They'll join from the next round.`,
+        });
+      }
+      return;
+    }
+
+    // Build catch-up state incrementally
+    let cuByes: string[] = [];
+    let cuPairings: Pairing[] = [];
+    const cuStandings: Standing[] = allNewPlayerObjects.map(p => ({
+      playerId: p.id, tournamentId: tournament.id,
+      score: 0, buchholz: 0, rating: calculateCurrentRating(p),
+      wins: 0, losses: 0, draws: 0, gamesPlayed: 0,
+    }));
+
+    for (let r = 1; r <= catchUpRounds; r++) {
+      try {
+        const res = generateSwissPairings({
+          players: allNewPlayerObjects,
+          standings: cuStandings,
+          pairings: cuPairings,
+          round: r,
+          byes: cuByes,
+        });
+
+        const newPairings: Pairing[] = res.pairings.map(p => ({ ...p, tournamentId: tournament.id }));
+        for (const pairing of newPairings) await addPairing(pairing);
+
+        cuPairings = [...cuPairings, ...newPairings];
+        cuByes = res.byes;
+
+        // Credit bye points in the running catch-up standings
+        cuStandings.forEach(s => {
+          if (newPairings.find(p => p.isBye && p.player1Id === s.playerId)) {
+            s.score += 1; s.wins += 1; s.gamesPlayed += 1;
+          }
+        });
+      } catch (err) {
+        console.error(`Catch-up round ${r} failed:`, err);
+      }
+    }
+
+    toast({
+      title: "Spot Entry complete!",
+      description: `${allNewIds.length} player(s) added. ${catchUpRounds} catch-up round${catchUpRounds > 1 ? "s" : ""} generated (Rounds 1–${catchUpRounds}). Enter their results, then they join Round ${tournament.currentRound}.`,
+    });
   };
 
   // ── Manual Result Entry ───────────────────────────────────────────────────
@@ -337,7 +463,22 @@ export default function TournamentDetailPage() {
             {tournament.description && <p className="text-muted-foreground mt-2">{tournament.description}</p>}
           </div>
           <div className="flex gap-2 flex-wrap justify-end">
-            <AddPlayerDialog tournament={tournament} availablePlayers={players} onAddPlayers={handleAddPlayers} />
+            {/* Legacy add-player (for planning stage) */}
+            {tournament.status !== "in-progress" && (
+              <AddPlayerDialog tournament={tournament} availablePlayers={players} onAddPlayers={handleAddPlayers} />
+            )}
+
+            {/* Spot Entry — visible only when tournament is running */}
+            {tournament.status === "in-progress" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowSpotEntry(true)}
+              >
+                <UserPlus className="h-4 w-4" /> Spot Entry
+              </Button>
+            )}
 
             {tournamentStandings.length > 0 && (
               <ExportStandings tournament={tournament} standings={tournamentStandings} players={playersMap} />
@@ -455,6 +596,16 @@ export default function TournamentDetailPage() {
         roundNumber={currentRound}
         onSelect={handleTimeControlSelected}
         onCancel={() => setShowTimeControlDialog(false)}
+      />
+
+      {/* Spot Entry Dialog */}
+      <SpotEntryDialog
+        open={showSpotEntry}
+        onOpenChange={setShowSpotEntry}
+        tournament={tournament}
+        allPlayers={players}
+        currentRound={currentRound}
+        onConfirm={handleSpotEntry}
       />
 
       {/* Manual Result Dialog */}
