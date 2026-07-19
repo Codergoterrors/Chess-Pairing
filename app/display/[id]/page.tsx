@@ -3,17 +3,23 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// ── Interval between auto-refreshes (seconds) ─────────────────
+// ── Refresh interval ──────────────────────────────────────────
 const REFRESH = 30;
 
-// ── Row mappers (no hook dependency needed) ────────────────────
+// ── Row mappers ───────────────────────────────────────────────
 function mapT(r: any) {
   return {
     id: r.id as string, name: r.name as string,
     description: r.description as string | undefined,
     format: r.format as string, status: r.status as string,
-    rounds: r.rounds as number, currentRound: (r.current_round ?? 0) as number,
+    rounds: r.rounds as number,
+    currentRound: (r.current_round ?? 0) as number,
     players: (r.players ?? []) as string[],
     startDate: r.start_date as number | undefined,
   };
@@ -21,7 +27,8 @@ function mapT(r: any) {
 function mapP(r: any) {
   return {
     id: r.id as string, name: r.name as string,
-    rollNo: (r.roll_no ?? "") as string, branch: (r.branch ?? "") as string,
+    rollNo: (r.roll_no ?? "") as string,
+    branch: (r.branch ?? "") as string,
     officialElo: r.official_elo as number | null,
     estimatedElo: r.estimated_elo as number | null,
     fideRating: r.fide_rating as number | null,
@@ -29,18 +36,23 @@ function mapP(r: any) {
 }
 function mapPa(r: any) {
   return {
-    id: r.id as string, roundNumber: r.round_number as number,
-    player1Id: r.player1_id as string, player2Id: r.player2_id as string | undefined,
+    id: r.id as string,
+    roundNumber: r.round_number as number,
+    player1Id: r.player1_id as string,
+    player2Id: r.player2_id as string | undefined,
     result: r.result as "win1" | "win2" | "draw" | undefined,
-    isBye: r.is_bye as boolean, createdAt: (r.created_at ?? 0) as number,
+    isBye: r.is_bye as boolean,
+    createdAt: (r.created_at ?? 0) as number,
   };
 }
 function mapSt(r: any) {
   return {
     playerId: r.player_id as string,
-    score: Number(r.score), buchholz: Number(r.buchholz),
-    wins: (r.wins ?? 0) as number, losses: (r.losses ?? 0) as number,
-    draws: (r.draws ?? 0) as number, gamesPlayed: (r.games_played ?? 0) as number,
+    score: Number(r.score),
+    buchholz: Number(r.buchholz),
+    wins: (r.wins ?? 0) as number,
+    losses: (r.losses ?? 0) as number,
+    draws: (r.draws ?? 0) as number,
   };
 }
 
@@ -49,64 +61,21 @@ type PRec  = ReturnType<typeof mapP>;
 type PaRec = ReturnType<typeof mapPa>;
 type StRec = ReturnType<typeof mapSt>;
 
-function rating(p: PRec | undefined): string {
+function elo(p: PRec | undefined): string {
   if (!p) return "NR";
   const v = p.officialElo ?? p.fideRating ?? p.estimatedElo ?? null;
   return v && v >= 100 ? String(v) : "NR";
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  "planning": "#94a3b8", "in-progress": "#22c55e",
-  "completed": "#f59e0b", "upcoming": "#60a5fa",
-};
-
-// ── Loading skeleton ───────────────────────────────────────────
-function Loading() {
-  return (
-    <div style={S.root}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", color: "#f59e0b" }}>
-        <span style={{ fontSize: "3rem" }}>♛</span>
-        <span style={{ color: "#94a3b8" }}>Loading tournament…</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Error card ────────────────────────────────────────────────
-function ErrorCard({ msg }: { msg: string }) {
-  return (
-    <div style={S.root}>
-      <div style={{ textAlign: "center", maxWidth: 520, padding: "2rem" }}>
-        <span style={{ fontSize: "2.5rem" }}>♟</span>
-        <h1 style={{ color: "#f1f5f9", fontSize: "1.4rem", margin: "0.75rem 0 0.4rem" }}>
-          Unable to Load Tournament
-        </h1>
-        <p style={{ color: "#94a3b8", fontSize: "0.875rem", marginBottom: "1.5rem" }}>{msg}</p>
-        <div style={{
-          background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)",
-          borderRadius: "0.5rem", padding: "1rem", textAlign: "left",
-        }}>
-          <p style={{ color: "#fde68a", fontWeight: 600, fontSize: "0.85rem", margin: "0 0 0.4rem" }}>
-            To enable public access:
-          </p>
-          <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>
-            Run the <b>public_display_sql</b> script in your Supabase dashboard SQL editor, then refresh this page.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ══════════════════════════════════════════════════════════════
 export default function DisplayPage() {
   const { id } = useParams<{ id: string }>();
 
-  const [t, setT]       = useState<TRec | null>(null);
-  const [pl, setPl]     = useState<PRec[]>([]);
-  const [pa, setPa]     = useState<PaRec[]>([]);
-  const [st, setSt]     = useState<StRec[]>([]);
-  const [err, setErr]   = useState<string | null>(null);
+  const [t, setT]     = useState<TRec | null>(null);
+  const [pl, setPl]   = useState<PRec[]>([]);
+  const [pa, setPa]   = useState<PaRec[]>([]);
+  const [st, setSt]   = useState<StRec[]>([]);
+  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [clock, setClock]     = useState(new Date());
@@ -140,332 +109,370 @@ export default function DisplayPage() {
       .from("standings").select("*").eq("tournament_id", id);
     setSt((stRows ?? []).map(mapSt));
 
-    setUpdated(new Date()); setCd(REFRESH); setErr(null); setLoading(false);
+    setUpdated(new Date());
+    setCd(REFRESH);
+    setErr(null);
+    setLoading(false);
   }, [id]);
 
-  useEffect(() => { fetchAll(); const iv = setInterval(fetchAll, REFRESH * 1000); return () => clearInterval(iv); }, [fetchAll]);
-  useEffect(() => { const iv = setInterval(() => setCd(v => Math.max(0, v - 1)), 1000); return () => clearInterval(iv); }, []);
-  useEffect(() => { const iv = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(iv); }, []);
+  useEffect(() => {
+    fetchAll();
+    const iv = setInterval(fetchAll, REFRESH * 1000);
+    return () => clearInterval(iv);
+  }, [fetchAll]);
 
-  const plMap     = useMemo(() => new Map(pl.map(p => [p.id, p])), [pl]);
-  const roundPa   = useMemo(() => pa.filter(p => p.roundNumber === round).sort((a, b) => a.createdAt - b.createdAt), [pa, round]);
-  const sortedSt  = useMemo(() => [...st].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz), [st]);
-  const done      = roundPa.filter(p => p.result || p.isBye).length;
+  useEffect(() => {
+    const iv = setInterval(() => setCd(v => Math.max(0, v - 1)), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
-  if (loading) return <Loading />;
-  if (err || !t)  return <ErrorCard msg={err ?? "Unknown error"} />;
+  useEffect(() => {
+    const iv = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
-  const maxRound = Math.max(t.rounds, t.currentRound);
+  const plMap    = useMemo(() => new Map(pl.map(p => [p.id, p])), [pl]);
+  const roundPa  = useMemo(() => pa.filter(p => p.roundNumber === round).sort((a, b) => a.createdAt - b.createdAt), [pa, round]);
+  const sortedSt = useMemo(() => [...st].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz), [st]);
+  const done     = roundPa.filter(p => p.result || p.isBye).length;
+  const maxRound = t ? Math.max(t.rounds, t.currentRound) : 1;
+
+  // ── Loading ────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-2">
+          <Trophy className="h-10 w-10 text-primary mx-auto animate-pulse" />
+          <p className="text-muted-foreground">Loading tournament…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error ──────────────────────────────────────────────────
+  if (err || !t) {
+    return (
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5" /> Unable to Load Tournament
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{err}</p>
+            <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+              <p className="font-medium">To enable public access:</p>
+              <p className="text-muted-foreground">
+                Run the <strong>public read SQL</strong> in your Supabase dashboard,
+                or open this page while logged in.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const isCurrent = round === t.currentRound;
+  const pct = roundPa.length > 0 ? (done / roundPa.length) * 100 : 0;
 
   return (
-    <div style={S.root}>
-      {/* ── HEADER ──────────────────────────────────────── */}
-      <header style={S.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", minWidth: 0 }}>
-          {/* LIVE pill */}
-          <div style={S.livePill}>
-            <span style={S.liveDot} />
-            <span style={{ color: "#ef4444", fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.12em" }}>LIVE</span>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <span style={{ color: "#f59e0b", fontSize: "1.6rem", lineHeight: 1 }}>♛</span>
-              <h1 style={{ fontSize: "clamp(1.1rem, 2.2vw, 1.9rem)", fontWeight: 800, color: "#f8fafc", margin: 0, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {t.name}
-              </h1>
+    <div className="min-h-screen flex flex-col bg-background">
+
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {/* LIVE pill */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/30 shrink-0 mt-1">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-[10px] font-bold text-destructive tracking-widest uppercase">Live</span>
             </div>
-            <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", marginTop: "0.2rem", flexWrap: "wrap" }}>
-              <Chip color="#94a3b8">{t.format}</Chip>
-              <Chip color={STATUS_COLOR[t.status] ?? "#94a3b8"} glow>{t.status.replace("-", " ")}</Chip>
-              <Chip color="#94a3b8">{pl.length} players</Chip>
-              {t.startDate && <Chip color="#64748b">{new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</Chip>}
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight leading-tight truncate">{t.name}</h1>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Badge variant="secondary">{t.format}</Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    t.status === "in-progress" && "border-green-500/50 text-green-500",
+                    t.status === "completed"   && "border-yellow-500/50 text-yellow-500",
+                    t.status === "planning"    && "border-muted-foreground/50",
+                  )}
+                >
+                  {t.status.replace("-", " ")}
+                </Badge>
+                <span className="text-sm text-muted-foreground">{pl.length} players</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-sm text-muted-foreground">{t.rounds} rounds</span>
+                {t.startDate && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        {/* Clock */}
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: "clamp(1.1rem, 1.8vw, 1.6rem)", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#f8fafc", letterSpacing: "0.04em" }}>
-            {clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </div>
-          <div style={{ fontSize: "0.72rem", color: "#4b5563" }}>
-            {clock.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+
+          {/* Clock */}
+          <div className="text-right shrink-0">
+            <p className="text-2xl font-bold tabular-nums tracking-tight">
+              {clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {clock.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long" })}
+            </p>
           </div>
         </div>
       </header>
 
-      {/* ── ROUND BAR ────────────────────────────────────── */}
-      <div style={S.roundBar}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <button style={{ ...S.navBtn, opacity: round <= 1 ? 0.3 : 1 }} disabled={round <= 1} onClick={() => setRound(r => r - 1)}>‹</button>
-          <div style={{ textAlign: "center" }}>
-            <span style={{ fontSize: "1rem", fontWeight: 800, color: "#f59e0b", letterSpacing: "0.05em" }}>ROUND {round}</span>
-            <span style={{ color: "#374151", margin: "0 0.35rem" }}>/</span>
-            <span style={{ fontSize: "1rem", color: "#94a3b8" }}>{t.rounds}</span>
-            {round === t.currentRound && (
-              <span style={{ ...S.badge, marginLeft: "0.6rem", color: "#22c55e", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
-                Current Round
+      {/* ── ROUND SELECTOR ─────────────────────────────────── */}
+      <div className="border-b bg-muted/30">
+        <div className="container mx-auto px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="icon"
+              className="h-7 w-7"
+              disabled={round <= 1}
+              onClick={() => setRound(r => r - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm">
+              <span className="font-bold">Round {round}</span>
+              <span className="text-muted-foreground"> / {t.rounds}</span>
+              {isCurrent && (
+                <Badge variant="secondary" className="ml-2 text-xs py-0">Current</Badge>
+              )}
+            </div>
+            <Button
+              variant="outline" size="icon"
+              className="h-7 w-7"
+              disabled={round >= maxRound}
+              onClick={() => setRound(r => r + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {roundPa.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{done}/{roundPa.length} boards done</span>
+              <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT ───────────────────────────────────── */}
+      <div className="flex-1 container mx-auto px-4 py-4 min-h-0">
+        <div className="flex gap-4" style={{ minHeight: "calc(100vh - 200px)" }}>
+
+          {/* Pairings panel */}
+          <div className="flex-[3] flex flex-col gap-3 overflow-y-auto pr-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Round {round} Pairings
+            </p>
+
+            {roundPa.length === 0 ? (
+              <Card>
+                <CardContent className="pt-10 pb-10 flex flex-col items-center gap-2 text-center">
+                  <Trophy className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-muted-foreground">No pairings for Round {round} yet</p>
+                </CardContent>
+              </Card>
+            ) : roundPa.map((pairing, idx) => {
+              const p1 = plMap.get(pairing.player1Id);
+              const p2 = pairing.player2Id ? plMap.get(pairing.player2Id) : undefined;
+              const isP1Win = pairing.result === "win1";
+              const isP2Win = pairing.result === "win2";
+              const isDraw  = pairing.result === "draw";
+              const pending = !pairing.result && !pairing.isBye;
+
+              return (
+                <Card
+                  key={pairing.id}
+                  className={cn(pending && "border-primary/30")}
+                >
+                  <CardContent className="p-4">
+                    {/* Board header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Board {idx + 1}
+                      </span>
+                      {pairing.isBye ? (
+                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white">BYE · +1 pt</Badge>
+                      ) : pairing.result ? (
+                        <Badge variant={isDraw ? "secondary" : "default"}
+                          className={cn(
+                            isP1Win || isP2Win ? "bg-green-500/10 text-green-500 border-green-500/30 hover:bg-green-500/20" : "",
+                            isDraw ? "bg-blue-500/10 text-blue-500 border-blue-500/30" : "",
+                          )}
+                        >
+                          {isDraw ? "½–½ Draw" : isP1Win ? "1–0 White Wins" : "0–1 Black Wins"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="animate-pulse text-primary border-primary/40">
+                          ● Ongoing
+                        </Badge>
+                      )}
+                    </div>
+
+                    {pairing.isBye ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                        <div className="flex-1">
+                          <p className="font-semibold text-base">{p1?.name ?? "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{p1?.rollNo} · {p1?.branch} · {elo(p1)}</p>
+                        </div>
+                        <span className="text-amber-500 text-xl">⭐</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {/* Player 1 */}
+                        <div className={cn(
+                          "flex-1 p-3 rounded-lg transition-colors",
+                          isP1Win && "bg-green-500/8 border border-green-500/20",
+                          isDraw  && "bg-blue-500/8 border border-blue-500/15",
+                          !pairing.result && "bg-muted/30",
+                        )}>
+                          <p className={cn("font-semibold text-sm leading-tight", isP1Win && "text-green-400")}>
+                            {p1?.name ?? "Unknown"}
+                            {isP1Win && " ✓"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            ⬜ {p1?.branch} · <span className="font-medium">{elo(p1)}</span>
+                          </p>
+                        </div>
+
+                        {/* Score */}
+                        <div className="w-10 text-center shrink-0">
+                          {pairing.result ? (
+                            <div className="space-y-0.5">
+                              <p className={cn("text-sm font-bold leading-tight", isP1Win ? "text-green-400" : isDraw ? "text-blue-400" : "text-destructive")}>
+                                {isDraw ? "½" : isP1Win ? "1" : "0"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground/50">—</p>
+                              <p className={cn("text-sm font-bold leading-tight", isP2Win ? "text-green-400" : isDraw ? "text-blue-400" : "text-destructive")}>
+                                {isDraw ? "½" : isP2Win ? "1" : "0"}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground font-medium">vs</p>
+                          )}
+                        </div>
+
+                        {/* Player 2 */}
+                        <div className={cn(
+                          "flex-1 p-3 rounded-lg text-right transition-colors",
+                          isP2Win && "bg-green-500/8 border border-green-500/20",
+                          isDraw  && "bg-blue-500/8 border border-blue-500/15",
+                          !pairing.result && "bg-muted/30",
+                        )}>
+                          <p className={cn("font-semibold text-sm leading-tight", isP2Win && "text-green-400")}>
+                            {isP2Win && "✓ "}
+                            {p2?.name ?? "Unknown"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            <span className="font-medium">{elo(p2)}</span> · {p2?.branch} ⬛
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Standings panel */}
+          <div className="flex-[2] overflow-y-auto">
+            <Card className="sticky top-0">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  Standings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pb-2">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      {["#", "Player", "Pts", "W", "L", "D"].map(h => (
+                        <th key={h} className={cn(
+                          "py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide",
+                          h === "Player" ? "text-left px-4" : "text-center px-2",
+                        )}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedSt.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">No standings yet</td></tr>
+                    ) : sortedSt.map((s, i) => {
+                      const player = plMap.get(s.playerId);
+                      const top3 = i < 3;
+                      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
+                      return (
+                        <tr key={s.playerId} className={cn(
+                          "border-b border-border/50 transition-colors hover:bg-muted/30",
+                          top3 && "bg-amber-500/5",
+                        )}>
+                          <td className="py-2.5 text-center px-2">
+                            {medal
+                              ? <span className="text-base">{medal}</span>
+                              : <span className="text-xs text-muted-foreground font-medium">{i + 1}</span>
+                            }
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <p className={cn("leading-tight truncate max-w-[11rem]", top3 ? "font-semibold" : "font-medium text-sm")}>
+                              {player?.name ?? "Unknown"}
+                            </p>
+                            {player?.rollNo && (
+                              <p className="text-[10px] text-muted-foreground">{player.rollNo}</p>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-center px-2">
+                            <span className={cn("font-bold tabular-nums", top3 ? "text-base" : "text-sm")}>{s.score}</span>
+                          </td>
+                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-green-500">{s.wins}</td>
+                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-destructive">{s.losses}</td>
+                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-blue-500">{s.draws}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FOOTER ───────────────────────────────────────────── */}
+      <div className="border-t bg-muted/20 mt-4">
+        <div className="container mx-auto px-4 py-2 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">♟ Chess Club · Chess Pairing</span>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {updated && (
+              <span>
+                Updated {updated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             )}
-          </div>
-          <button style={{ ...S.navBtn, opacity: round >= maxRound ? 0.3 : 1 }} disabled={round >= maxRound} onClick={() => setRound(r => r + 1)}>›</button>
-        </div>
-
-        {/* Progress bar */}
-        {roundPa.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>{done}/{roundPa.length} boards done</span>
-            <div style={{ width: 80, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ width: `${(done / roundPa.length) * 100}%`, height: "100%", background: "#22c55e", borderRadius: 2, transition: "width 0.5s ease" }} />
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span>Refresh in {cd}s</span>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* ── MAIN ─────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
-
-        {/* Left: Pairings */}
-        <div style={{ flex: "0 0 56%", display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.05)", overflow: "hidden" }}>
-          <SectionLabel>Round {round} Pairings</SectionLabel>
-          <div style={{ flex: 1, overflowY: "auto", padding: "0.875rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-            {roundPa.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "3rem", color: "#374151" }}>
-                <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>♟</div>
-                <p style={{ margin: 0 }}>No pairings for Round {round} yet</p>
-              </div>
-            ) : roundPa.map((pairing, idx) => (
-              <BoardCard key={pairing.id} pairing={pairing} boardNum={idx + 1} plMap={plMap} />
-            ))}
-          </div>
-        </div>
-
-        {/* Right: Standings */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <SectionLabel>Standings</SectionLabel>
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky", top: 0, background: "#0a0c0f", zIndex: 1 }}>
-                  {(["#", "Player", "Score", "W", "L", "D", "Bkh"] as const).map(h => (
-                    <th key={h} style={{ padding: "0.65rem 0.75rem", textAlign: h === "Player" ? "left" : "center", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", color: "#4b5563", textTransform: "uppercase" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedSt.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", padding: "2rem", color: "#374151", fontSize: "0.9rem" }}>No standings yet</td></tr>
-                ) : sortedSt.map((s, i) => {
-                  const p = plMap.get(s.playerId);
-                  const top = i < 3;
-                  const rankColors = ["#fbbf24", "#94a3b8", "#cd7c3e"];
-                  return (
-                    <tr key={s.playerId} style={{ borderBottom: "1px solid rgba(255,255,255,0.025)", background: top ? `rgba(245,158,11,${0.06 - i * 0.018})` : "transparent" }}>
-                      <td style={{ padding: "0.55rem 0.75rem", textAlign: "center" }}>
-                        <span style={{ fontSize: top ? "1rem" : "0.8rem", fontWeight: 700, color: top ? rankColors[i] : "#374151" }}>
-                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-                        </span>
-                      </td>
-                      <td style={{ padding: "0.55rem 0.75rem" }}>
-                        <p style={{ fontSize: "clamp(0.78rem, 0.9vw, 0.92rem)", fontWeight: top ? 600 : 400, color: top ? "#f8fafc" : "#cbd5e1", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "12rem" }}>
-                          {p?.name ?? "Unknown"}
-                        </p>
-                        {p?.rollNo && <p style={{ fontSize: "0.65rem", color: "#374151", margin: "0.05rem 0 0" }}>{p.rollNo}</p>}
-                      </td>
-                      <td style={{ padding: "0.55rem 0.75rem", textAlign: "center" }}>
-                        <span style={{ fontSize: top ? "1.1rem" : "0.9rem", fontWeight: 800, color: top ? "#fbbf24" : "#f1f5f9" }}>{s.score}</span>
-                      </td>
-                      <td style={{ textAlign: "center", fontSize: "0.8rem", color: "#22c55e", fontWeight: 600, padding: "0 0.3rem" }}>{s.wins}</td>
-                      <td style={{ textAlign: "center", fontSize: "0.8rem", color: "#ef4444", fontWeight: 600, padding: "0 0.3rem" }}>{s.losses}</td>
-                      <td style={{ textAlign: "center", fontSize: "0.8rem", color: "#60a5fa", fontWeight: 600, padding: "0 0.3rem" }}>{s.draws}</td>
-                      <td style={{ textAlign: "center", fontSize: "0.7rem", color: "#4b5563", padding: "0 0.5rem" }}>{s.buchholz}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
-
-      {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer style={S.footer}>
-        <span style={{ fontSize: "0.72rem", color: "#374151" }}>♟ Chess Club · Powered by Chess Pairing</span>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-          {updated && (
-            <span style={{ fontSize: "0.72rem", color: "#374151" }}>
-              Updated {updated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-            <span style={{ fontSize: "0.72rem", color: "#4b5563" }}>Refresh in {cd}s</span>
-          </div>
-        </div>
-      </footer>
-
-      <style>{`
-        @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
-        ::-webkit-scrollbar{width:3px;height:3px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
-      `}</style>
     </div>
   );
 }
-
-// ── BoardCard ─────────────────────────────────────────────────
-function BoardCard({ pairing, boardNum, plMap }: { pairing: PaRec; boardNum: number; plMap: Map<string, PRec> }) {
-  const p1 = plMap.get(pairing.player1Id);
-  const p2 = pairing.player2Id ? plMap.get(pairing.player2Id) : undefined;
-  const isP1Win = pairing.result === "win1";
-  const isP2Win = pairing.result === "win2";
-  const isDraw  = pairing.result === "draw";
-  const pending = !pairing.result && !pairing.isBye;
-
-  const resultBadge = () => {
-    if (pairing.isBye) return { text: "BYE · +1 pt", color: "#f59e0b" };
-    if (!pairing.result) return { text: "● Ongoing", color: "#f59e0b" };
-    if (isDraw) return { text: "½–½  Draw", color: "#60a5fa" };
-    return { text: isP1Win ? "1–0  White Wins" : "0–1  Black Wins", color: "#22c55e" };
-  };
-  const rb = resultBadge();
-
-  return (
-    <div style={{
-      background: "rgba(255,255,255,0.025)",
-      border: `1px solid ${pending ? "rgba(245,158,11,0.22)" : "rgba(255,255,255,0.06)"}`,
-      borderRadius: "0.625rem",
-      padding: "0.75rem 1rem",
-    }}>
-      {/* Top row: board + result */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-        <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", color: "#4b5563", textTransform: "uppercase" }}>Board {boardNum}</span>
-        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: rb.color, background: `${rb.color}16`, border: `1px solid ${rb.color}35`, borderRadius: 999, padding: "0.1rem 0.55rem", animation: pending ? "livePulse 2s infinite" : "none" }}>
-          {rb.text}
-        </span>
-      </div>
-
-      {pairing.isBye ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <PlayerCell p={p1} side="white" bold={false} />
-          <div style={{ color: "#f59e0b", fontSize: "1.2rem", flex: "0 0 auto", padding: "0 0.5rem" }}>⭐</div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <PlayerCell p={p1} side="white" bold={isP1Win} win={isP1Win} draw={isDraw} />
-          {/* Score column */}
-          <div style={{ flexShrink: 0, width: "2.5rem", textAlign: "center" }}>
-            {pairing.result ? (
-              <>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: isP1Win ? "#4ade80" : isDraw ? "#60a5fa" : "#ef4444", lineHeight: 1.1 }}>{isDraw ? "½" : isP1Win ? "1" : "0"}</div>
-                <div style={{ fontSize: "0.6rem", color: "#374151" }}>—</div>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: isP2Win ? "#4ade80" : isDraw ? "#60a5fa" : "#ef4444", lineHeight: 1.1 }}>{isDraw ? "½" : isP2Win ? "1" : "0"}</div>
-              </>
-            ) : (
-              <span style={{ fontSize: "0.75rem", color: "#374151" }}>vs</span>
-            )}
-          </div>
-          <PlayerCell p={p2} side="black" bold={isP2Win} win={isP2Win} draw={isDraw} right />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlayerCell({ p, side, bold, win, draw, right }: { p?: PRec; side: "white" | "black"; bold: boolean; win?: boolean; draw?: boolean; right?: boolean }) {
-  const winColor = win ? "#4ade80" : draw ? "#60a5fa" : undefined;
-  return (
-    <div style={{
-      flex: 1, padding: "0.4rem 0.6rem", borderRadius: "0.4rem", textAlign: right ? "right" : "left",
-      background: win ? "rgba(34,197,94,0.07)" : draw ? "rgba(96,165,250,0.06)" : "transparent",
-      border: `1px solid ${win ? "rgba(34,197,94,0.18)" : draw ? "rgba(96,165,250,0.14)" : "transparent"}`,
-    }}>
-      <p style={{ fontSize: "clamp(0.78rem, 1vw, 0.95rem)", fontWeight: bold ? 700 : 400, color: winColor ?? "#e2e8f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {right && win && <span style={{ marginRight: "0.3rem" }}>✓</span>}
-        {p?.name ?? "Unknown"}
-        {!right && win && <span style={{ marginLeft: "0.3rem" }}>✓</span>}
-      </p>
-      <p style={{ fontSize: "0.68rem", color: "#4b5563", margin: "0.05rem 0 0" }}>
-        {side === "white" ? "⬜" : "⬛"} {p?.branch ?? "—"}
-        {p && <span style={{ color: "#64748b" }}> · {p.officialElo ?? p.fideRating ?? p.estimatedElo ? String(p.officialElo ?? p.fideRating ?? p.estimatedElo) : "NR"}</span>}
-      </p>
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "0.55rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.015)", flexShrink: 0 }}>
-      <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", color: "#4b5563", textTransform: "uppercase" }}>{children}</span>
-    </div>
-  );
-}
-
-function Chip({ children, color, glow }: { children: React.ReactNode; color: string; glow?: boolean }) {
-  return (
-    <span style={{
-      fontSize: "0.7rem", fontWeight: 600, color,
-      background: `${color}12`, border: `1px solid ${color}30`,
-      borderRadius: 999, padding: "0.1rem 0.5rem",
-      textTransform: "capitalize",
-      boxShadow: glow ? `0 0 8px ${color}30` : "none",
-    }}>{children}</span>
-  );
-}
-
-// ── Shared styles ──────────────────────────────────────────────
-const S = {
-  root: {
-    background: "#0a0c0f", minHeight: "100vh", display: "flex",
-    flexDirection: "column" as const, color: "#f1f5f9",
-    fontFamily: "'Inter', system-ui, sans-serif", overflow: "hidden",
-    alignItems: undefined as any,
-    justifyContent: undefined as any,
-  },
-  rootCenter: {
-    background: "#0a0c0f", minHeight: "100vh", display: "flex",
-    flexDirection: "column" as const, color: "#f1f5f9",
-    fontFamily: "'Inter', system-ui, sans-serif",
-    alignItems: "center", justifyContent: "center",
-  },
-  header: {
-    background: "linear-gradient(135deg, #1c1400 0%, #0d0f0b 100%)",
-    borderBottom: "1px solid rgba(245,158,11,0.15)",
-    padding: "0.875rem 1.5rem",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    gap: "1rem", flexShrink: 0,
-  },
-  roundBar: {
-    background: "rgba(255,255,255,0.018)",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
-    padding: "0.5rem 1.5rem",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    flexShrink: 0,
-  },
-  footer: {
-    background: "rgba(0,0,0,0.55)",
-    borderTop: "1px solid rgba(255,255,255,0.04)",
-    padding: "0.45rem 1.5rem",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    flexShrink: 0,
-  },
-  livePill: {
-    display: "flex", alignItems: "center", gap: "0.35rem",
-    background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)",
-    borderRadius: 999, padding: "0.2rem 0.6rem", flexShrink: 0,
-  },
-  liveDot: {
-    width: 7, height: 7, borderRadius: "50%", background: "#ef4444",
-    animation: "livePulse 1.5s infinite",
-    display: "inline-block",
-  } as React.CSSProperties,
-  navBtn: {
-    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "0.35rem", padding: "0.2rem 0.55rem",
-    color: "#f1f5f9", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1,
-  } as React.CSSProperties,
-  badge: {
-    fontSize: "0.67rem", fontWeight: 600, borderRadius: 999,
-    padding: "0.1rem 0.5rem",
-  } as React.CSSProperties,
-};
