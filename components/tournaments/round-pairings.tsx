@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateCurrentRating } from "@/lib/utils-chess";
 import { Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface RoundPairingsProps {
   tournament: { id: string; name: string; rounds: number; currentRound: number };
@@ -55,6 +56,34 @@ export function RoundPairings({
       ? `${timeControl.minutesPerSide}+${timeControl.increment}`
       : `${timeControl.minutesPerSide} min`
   ) : null;
+
+  // ── Detect Finals round: label Grand Final vs 3rd Place Match ──────────
+  const standingsMapLocal = standings; 
+  const roundPairingsNoBye = roundPairings.filter(p => !p.isBye && p.player2Id);
+
+  const isFinalRound = (() => {
+    const hasZeroLossBoth = roundPairingsNoBye.some(p => {
+      const l1 = standingsMapLocal.get(p.player1Id)?.losses ?? 0;
+      const l2 = standingsMapLocal.get(p.player2Id!)?.losses ?? 0;
+      return l1 === 0 && l2 === 0;
+    });
+    const hasOneLossBoth = roundPairingsNoBye.some(p => {
+      const l1 = standingsMapLocal.get(p.player1Id)?.losses ?? 0;
+      const l2 = standingsMapLocal.get(p.player2Id!)?.losses ?? 0;
+      return l1 === 1 && l2 === 1;
+    });
+    return hasZeroLossBoth && hasOneLossBoth;
+  })();
+
+  const getFinalLabel = (pairing: Pairing): "final" | "third" | null => {
+    if (!isFinalRound || pairing.isBye || !pairing.player2Id) return null;
+    const l1 = standingsMapLocal.get(pairing.player1Id)?.losses ?? 0;
+    const l2 = standingsMapLocal.get(pairing.player2Id)?.losses ?? 0;
+    if (l1 === 0 && l2 === 0) return "final";
+    if (l1 === 1 && l2 === 1) return "third";
+    return null;
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (roundPairings.length === 0) {
     return (
@@ -147,7 +176,29 @@ export function RoundPairings({
             const player2Info = pairing.player2Id ? getPlayerInfo(pairing.player2Id) : null;
 
             return (
-              <div key={pairing.id} className="p-4 border rounded-lg">
+              <div
+                key={pairing.id}
+                className={cn(
+                  "p-4 border rounded-lg",
+                  getFinalLabel(pairing) === "final" && "border-yellow-500/50 bg-yellow-500/5",
+                  getFinalLabel(pairing) === "third" && "border-amber-700/40 bg-amber-900/10",
+                )}
+              >
+                {/* Finals label */}
+                {getFinalLabel(pairing) === "final" && (
+                  <div className="mb-3">
+                    <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xs gap-1">
+                      🏆 Grand Final
+                    </Badge>
+                  </div>
+                )}
+                {getFinalLabel(pairing) === "third" && (
+                  <div className="mb-3">
+                    <Badge variant="outline" className="border-amber-600/50 text-amber-500 font-bold text-xs gap-1">
+                      🥉 3rd Place Match
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-4">
                   {/* Player 1 */}
                   <div className="flex-1">

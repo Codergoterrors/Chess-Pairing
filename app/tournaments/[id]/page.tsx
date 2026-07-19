@@ -19,7 +19,7 @@ import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEn
 import { generateSwissPairings } from "@/lib/pairing-algorithm";
 import { Player, Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { calculateCurrentRating } from "@/lib/utils-chess";
+import { calculateCurrentRating, havePlayedBefore, generateId } from "@/lib/utils-chess";
 import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import Link from "next/link";
 
@@ -194,7 +194,55 @@ export default function TournamentDetailPage() {
         byes: tournament.byes,
       });
 
-      const newPairingsWithTournament = result.pairings.map(p => ({ ...p, tournamentId: tournament.id }));
+      let newPairingsWithTournament = result.pairings.map(p => ({ ...p, tournamentId: tournament.id }));
+
+      // ── Knockout Finals: auto-generate 3rd/4th place match ───────────────
+      //
+      // Case A – Finals round (2 undefeated remain):  also pair the 2 semi-final
+      //          losers (1 loss each) who haven't faced each other yet.
+      //
+      // Case B – Same player won both matches in a 3-player bracket:
+      //          ≤1 undefeated + exactly 2 one-loss players who never played →
+      //          generate their 3rd-place match in this same round.
+      // ─────────────────────────────────────────────────────────────────────
+      if (tournament.format === "Knockout") {
+        const oneLossPlayers = tournamentPlayers.filter(p => {
+          const s = standingsMap.get(p.id);
+          return s && s.losses === 1;
+        });
+
+        const needThirdPlace =
+          (activePlayers.length === 2 && oneLossPlayers.length >= 2) ||
+          (activePlayers.length <= 1 && oneLossPlayers.length === 2);
+
+        if (needThirdPlace) {
+          // Find the first pair of 1-loss players who haven't played each other
+          let addedThirdPlace = false;
+          outer: for (let i = 0; i < oneLossPlayers.length; i++) {
+            for (let j = i + 1; j < oneLossPlayers.length; j++) {
+              const p1 = oneLossPlayers[i];
+              const p2 = oneLossPlayers[j];
+              if (!havePlayedBefore(p1.id, p2.id, tournamentPairings)) {
+                newPairingsWithTournament.push({
+                  id: generateId(),
+                  tournamentId: tournament.id,
+                  roundNumber: currentRound,
+                  player1Id: p1.id,
+                  player2Id: p2.id,
+                  isBye: false,
+                  createdAt: Date.now() + 1,
+                });
+                addedThirdPlace = true;
+                break outer;
+              }
+            }
+          }
+          // If all one-loss pairs have already played → transitive ordering applies,
+          // no extra match needed (e.g. A beat B, C beat A → C=1st, A=2nd, B=3rd).
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       newPairingsWithTournament.forEach((pairing) => addPairing(pairing));
 
       // Recalculate standings including the new BYE points
@@ -209,7 +257,13 @@ export default function TournamentDetailPage() {
         status: "in-progress" as const,
       });
 
-      toast({ title: "Success", description: `Round ${currentRound} pairings generated!` });
+      const hasThirdPlace = newPairingsWithTournament.length > result.pairings.length;
+      toast({
+        title: "Pairings generated!",
+        description: hasThirdPlace
+          ? `Round ${currentRound}: Final + 3rd place match generated.`
+          : `Round ${currentRound} pairings generated.`,
+      });
     } catch (error) {
       console.error("Pairing generation error:", error);
       toast({ title: "Error", description: "Failed to generate pairings" });
