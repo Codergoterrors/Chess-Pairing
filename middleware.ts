@@ -22,10 +22,11 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const isLoginPage = req.nextUrl.pathname === "/login";
+  const isLoginPage  = req.nextUrl.pathname === "/login";
+  const isDisplayPage = req.nextUrl.pathname.startsWith("/display");
 
-  // If not logged in and not on login page → redirect to login
-  if (!session && !isLoginPage) {
+  // If not logged in and not on a public page → redirect to login
+  if (!session && !isLoginPage && !isDisplayPage) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/login";
     return NextResponse.redirect(redirectUrl);
