@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Refresh interval ──────────────────────────────────────────
-const REFRESH = 5;
+const REFRESH = 10; // fallback poll interval (real-time handles instant updates)
 
 // ── Row mappers ───────────────────────────────────────────────
 function mapT(r: any) {
@@ -81,6 +81,7 @@ export default function DisplayPage() {
   const [clock, setClock]     = useState(new Date());
   const [cd, setCd]           = useState(REFRESH);
   const [round, setRound]     = useState(1);
+  const [realtimeOk, setRealtimeOk] = useState(false);
 
   const fetchAll = useCallback(async () => {
     const { data: tRow, error: tErr } = await supabase
@@ -115,11 +116,37 @@ export default function DisplayPage() {
     setLoading(false);
   }, [id]);
 
+  // ── Polling fallback (every 10 s) ────────────────────────
   useEffect(() => {
     fetchAll();
     const iv = setInterval(fetchAll, REFRESH * 1000);
     return () => clearInterval(iv);
   }, [fetchAll]);
+
+  // ── Supabase real-time subscriptions ─────────────────────
+  // Fires fetchAll instantly whenever tournament / pairings / standings
+  // rows change — so the display updates within ~1 s of any result.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`display-live-${id}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'tournaments', filter: `id=eq.${id}` },
+        () => { fetchAll(); setCd(REFRESH); }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'pairings', filter: `tournament_id=eq.${id}` },
+        () => { fetchAll(); setCd(REFRESH); }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'standings', filter: `tournament_id=eq.${id}` },
+        () => { fetchAll(); setCd(REFRESH); }
+      )
+      .subscribe((status) => {
+        setRealtimeOk(status === 'SUBSCRIBED');
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id, fetchAll]);
 
   useEffect(() => {
     const iv = setInterval(() => setCd(v => Math.max(0, v - 1)), 1000);
@@ -608,10 +635,17 @@ export default function DisplayPage() {
                 Updated {updated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             )}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-semibold text-emerald-300">Refresh in {cd}s</span>
-            </div>
+              {realtimeOk ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-semibold text-emerald-300">Live · Real-time</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                  <span className="font-semibold text-yellow-300">Refresh in {cd}s</span>
+                </div>
+              )}
           </div>
         </div>
       </div>
