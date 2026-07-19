@@ -282,7 +282,7 @@ export default function PlayersPage() {
           VIEW Player Dialog (click on any row)
       ══════════════════════════════════════════════ */}
       <Dialog open={showView} onOpenChange={setShowView}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md flex flex-col" style={{ maxHeight: "90vh" }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg flex-shrink-0">
@@ -318,7 +318,7 @@ export default function PlayersPage() {
               { label: "Estimated", val: viewingPlayer.estimatedElo },
             ];
             return (
-              <div className="space-y-4 mt-1">
+              <div className="space-y-4 mt-1 overflow-y-auto flex-1 pr-1">
                 {/* Personal details grid */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {details.map(({ label, value }) => (
@@ -407,7 +407,7 @@ export default function PlayersPage() {
             );
           })()}
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 shrink-0 border-t pt-3">
             <Button variant="outline" onClick={() => setShowView(false)}>Close</Button>
             <Button onClick={() => { setShowView(false); openEdit(viewingPlayer!); }}>Edit Player</Button>
           </DialogFooter>
