@@ -181,35 +181,35 @@ export default function DisplayPage() {
     <div className="min-h-screen flex flex-col bg-background">
 
       {/* ── HEADER ─────────────────────────────────────────── */}
-      <header className="border-b bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             {/* LIVE pill */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/30 shrink-0 mt-1">
-              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-[10px] font-bold text-destructive tracking-widest uppercase">Live</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-500/20 to-red-500/10 border border-red-500/40 shrink-0 mt-0.5 shadow-sm">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[11px] font-bold text-red-400 tracking-widest uppercase">Live</span>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight leading-tight truncate">{t.name}</h1>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge variant="secondary">{t.format}</Badge>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-3xl font-bold tracking-tight leading-tight truncate bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{t.name}</h1>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 font-medium">{t.format}</Badge>
                 <Badge
-                  variant="outline"
                   className={cn(
-                    t.status === "in-progress" && "border-green-500/50 text-green-500",
-                    t.status === "completed"   && "border-yellow-500/50 text-yellow-500",
-                    t.status === "planning"    && "border-muted-foreground/50",
+                    "font-medium border",
+                    t.status === "in-progress" && "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+                    t.status === "completed"   && "bg-amber-500/20 text-amber-300 border-amber-500/40",
+                    t.status === "planning"    && "bg-slate-500/20 text-slate-300 border-slate-500/40",
                   )}
                 >
                   {t.status.replace("-", " ")}
                 </Badge>
-                <span className="text-sm text-muted-foreground">{pl.length} players</span>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="text-sm text-muted-foreground">{t.rounds} rounds</span>
+                <span className="text-sm text-muted-foreground font-medium">{pl.length} players</span>
+                <span className="text-muted-foreground/50">·</span>
+                <span className="text-sm text-muted-foreground font-medium">{t.rounds} rounds</span>
                 {t.startDate && (
                   <>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="text-sm text-muted-foreground font-medium">
                       {new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </span>
                   </>
@@ -219,11 +219,11 @@ export default function DisplayPage() {
           </div>
 
           {/* Clock */}
-          <div className="text-right shrink-0">
-            <p className="text-2xl font-bold tabular-nums tracking-tight">
+          <div className="text-right shrink-0 bg-gradient-to-br from-primary/10 to-primary/5 px-4 py-2.5 rounded-lg border border-primary/20">
+            <p className="text-2xl font-bold tabular-nums tracking-tight text-primary">
               {clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-1 font-medium">
               {clock.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long" })}
             </p>
           </div>
@@ -231,27 +231,27 @@ export default function DisplayPage() {
       </header>
 
       {/* ── ROUND SELECTOR ─────────────────────────────────── */}
-      <div className="border-b bg-muted/30">
-        <div className="container mx-auto px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="border-b bg-gradient-to-r from-muted/40 to-muted/20 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline" size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
               disabled={round <= 1}
               onClick={() => setRound(r => r - 1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="text-sm">
-              <span className="font-bold">Round {round}</span>
+              <span className="font-bold text-lg">Round <span className="text-primary">{round}</span></span>
               <span className="text-muted-foreground"> / {t.rounds}</span>
               {isCurrent && (
-                <Badge variant="secondary" className="ml-2 text-xs py-0">Current</Badge>
+                <Badge className="ml-3 text-xs py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Current Round</Badge>
               )}
             </div>
             <Button
               variant="outline" size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
               disabled={round >= maxRound}
               onClick={() => setRound(r => r + 1)}
             >
@@ -260,13 +260,15 @@ export default function DisplayPage() {
           </div>
 
           {roundPa.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{done}/{roundPa.length} boards done</span>
-              <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%` }}
-                />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+                <span className="text-xs font-semibold text-muted-foreground">{done}/{roundPa.length} complete</span>
+                <div className="w-24 h-2 bg-muted/60 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -274,20 +276,23 @@ export default function DisplayPage() {
       </div>
 
       {/* ── MAIN CONTENT ───────────────────────────────────── */}
-      <div className="flex-1 container mx-auto px-4 py-4 min-h-0">
-        <div className="flex gap-4" style={{ minHeight: "calc(100vh - 200px)" }}>
+      <div className="flex-1 container mx-auto px-4 py-6 min-h-0">
+        <div className="flex gap-6" style={{ minHeight: "calc(100vh - 220px)" }}>
 
           {/* Pairings panel */}
-          <div className="flex-[3] flex flex-col gap-3 overflow-y-auto pr-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              Round {round} Pairings
-            </p>
+          <div className="flex-[3] flex flex-col gap-4 overflow-y-auto pr-2">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-full" />
+              <p className="text-sm font-bold text-foreground uppercase tracking-wider">
+                Round {round} Pairings
+              </p>
+            </div>
 
             {roundPa.length === 0 ? (
-              <Card>
-                <CardContent className="pt-10 pb-10 flex flex-col items-center gap-2 text-center">
-                  <Trophy className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-muted-foreground">No pairings for Round {round} yet</p>
+              <Card className="border-dashed">
+                <CardContent className="pt-12 pb-12 flex flex-col items-center gap-3 text-center">
+                  <Trophy className="h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-muted-foreground font-medium">No pairings for Round {round} yet</p>
                 </CardContent>
               </Card>
             ) : roundPa.map((pairing, idx) => {
@@ -301,88 +306,90 @@ export default function DisplayPage() {
               return (
                 <Card
                   key={pairing.id}
-                  className={cn(pending && "border-primary/30")}
+                  className={cn(
+                    "border transition-all hover:shadow-lg",
+                    pending && "border-primary/40 bg-primary/5 shadow-md shadow-primary/10"
+                  )}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-5">
                     {/* Board header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Board {idx + 1}
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        Board #{idx + 1}
                       </span>
                       {pairing.isBye ? (
-                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white">BYE · +1 pt</Badge>
+                        <Badge className="bg-gradient-to-r from-amber-500/80 to-amber-600/80 text-white font-semibold shadow-md">BYE · +1 point</Badge>
                       ) : pairing.result ? (
-                        <Badge variant={isDraw ? "secondary" : "default"}
-                          className={cn(
-                            isP1Win || isP2Win ? "bg-green-500/10 text-green-500 border-green-500/30 hover:bg-green-500/20" : "",
-                            isDraw ? "bg-blue-500/10 text-blue-500 border-blue-500/30" : "",
-                          )}
-                        >
+                        <Badge className={cn(
+                          "font-bold shadow-md",
+                          isDraw ? "bg-gradient-to-r from-blue-500/80 to-blue-600/80 text-white" : 
+                          "bg-gradient-to-r from-emerald-500/80 to-green-600/80 text-white"
+                        )}>
                           {isDraw ? "½–½ Draw" : isP1Win ? "1–0 White Wins" : "0–1 Black Wins"}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="animate-pulse text-primary border-primary/40">
+                        <Badge className="animate-pulse bg-primary/20 text-primary border border-primary/40 font-semibold">
                           ● Ongoing
                         </Badge>
                       )}
                     </div>
 
                     {pairing.isBye ? (
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-400/5 border border-amber-500/30">
                         <div className="flex-1">
-                          <p className="font-semibold text-base">{p1?.name ?? "Unknown"}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{p1?.rollNo} · {p1?.branch} · {elo(p1)}</p>
+                          <p className="font-bold text-base">{p1?.name ?? "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{p1?.rollNo} · {p1?.branch} · {elo(p1)}</p>
                         </div>
-                        <span className="text-amber-500 text-xl">⭐</span>
+                        <span className="text-amber-400 text-2xl">⭐</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {/* Player 1 */}
                         <div className={cn(
-                          "flex-1 p-3 rounded-lg transition-colors",
-                          isP1Win && "bg-green-500/8 border border-green-500/20",
-                          isDraw  && "bg-blue-500/8 border border-blue-500/15",
-                          !pairing.result && "bg-muted/30",
+                          "flex-1 p-4 rounded-xl transition-all border",
+                          isP1Win && "bg-gradient-to-br from-emerald-500/15 to-emerald-400/5 border-emerald-500/40 shadow-md shadow-emerald-500/10",
+                          isDraw  && "bg-gradient-to-br from-blue-500/15 to-blue-400/5 border-blue-500/40 shadow-md shadow-blue-500/10",
+                          !pairing.result && "bg-muted/40 border-border/70",
                         )}>
-                          <p className={cn("font-semibold text-sm leading-tight", isP1Win && "text-green-400")}>
+                          <p className={cn("font-bold text-sm leading-snug", isP1Win ? "text-emerald-300" : "")}>
                             {p1?.name ?? "Unknown"}
                             {isP1Win && " ✓"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            ⬜ {p1?.branch} · <span className="font-medium">{elo(p1)}</span>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ⬜ {p1?.branch} · <span className="font-semibold text-foreground">{elo(p1)}</span>
                           </p>
                         </div>
 
                         {/* Score */}
-                        <div className="w-10 text-center shrink-0">
+                        <div className="w-12 text-center shrink-0 flex flex-col items-center justify-center">
                           {pairing.result ? (
-                            <div className="space-y-0.5">
-                              <p className={cn("text-sm font-bold leading-tight", isP1Win ? "text-green-400" : isDraw ? "text-blue-400" : "text-destructive")}>
+                            <div className="space-y-1 bg-muted/50 px-2.5 py-2 rounded-lg border border-border/50">
+                              <p className={cn("text-base font-bold leading-none", isP1Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
                                 {isDraw ? "½" : isP1Win ? "1" : "0"}
                               </p>
-                              <p className="text-[10px] text-muted-foreground/50">—</p>
-                              <p className={cn("text-sm font-bold leading-tight", isP2Win ? "text-green-400" : isDraw ? "text-blue-400" : "text-destructive")}>
+                              <p className="text-[9px] text-muted-foreground font-semibold">—</p>
+                              <p className={cn("text-base font-bold leading-none", isP2Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
                                 {isDraw ? "½" : isP2Win ? "1" : "0"}
                               </p>
                             </div>
                           ) : (
-                            <p className="text-xs text-muted-foreground font-medium">vs</p>
+                            <p className="text-xs text-muted-foreground font-semibold">vs</p>
                           )}
                         </div>
 
                         {/* Player 2 */}
                         <div className={cn(
-                          "flex-1 p-3 rounded-lg text-right transition-colors",
-                          isP2Win && "bg-green-500/8 border border-green-500/20",
-                          isDraw  && "bg-blue-500/8 border border-blue-500/15",
-                          !pairing.result && "bg-muted/30",
+                          "flex-1 p-4 rounded-xl transition-all border text-right",
+                          isP2Win && "bg-gradient-to-br from-emerald-500/15 to-emerald-400/5 border-emerald-500/40 shadow-md shadow-emerald-500/10",
+                          isDraw  && "bg-gradient-to-br from-blue-500/15 to-blue-400/5 border-blue-500/40 shadow-md shadow-blue-500/10",
+                          !pairing.result && "bg-muted/40 border-border/70",
                         )}>
-                          <p className={cn("font-semibold text-sm leading-tight", isP2Win && "text-green-400")}>
+                          <p className={cn("font-bold text-sm leading-snug", isP2Win ? "text-emerald-300" : "")}>
                             {isP2Win && "✓ "}
                             {p2?.name ?? "Unknown"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            <span className="font-medium">{elo(p2)}</span> · {p2?.branch} ⬛
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <span className="font-semibold text-foreground">{elo(p2)}</span> · {p2?.branch} ⬛
                           </p>
                         </div>
                       </div>
@@ -394,20 +401,23 @@ export default function DisplayPage() {
           </div>
 
           {/* Standings panel */}
-          <div className="flex-[2] overflow-y-auto">
-            <Card className="sticky top-0">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                  Standings
-                </CardTitle>
+          <div className="flex-[2] overflow-y-auto pr-2">
+            <Card className="sticky top-0 border-border/80 shadow-lg">
+              <CardHeader className="pb-3 pt-5 px-5 border-b border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-full" />
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground">
+                    Standings
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent className="p-0 pb-2">
+              <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
+                    <tr className="border-b border-border/50 bg-muted/30">
                       {["#", "Player", "Pts", "W", "L", "D"].map(h => (
                         <th key={h} className={cn(
-                          "py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide",
+                          "py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest",
                           h === "Player" ? "text-left px-4" : "text-center px-2",
                         )}>{h}</th>
                       ))}
@@ -415,36 +425,36 @@ export default function DisplayPage() {
                   </thead>
                   <tbody>
                     {sortedSt.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">No standings yet</td></tr>
+                      <tr><td colSpan={6} className="text-center py-8 text-muted-foreground text-xs font-medium">No standings yet</td></tr>
                     ) : sortedSt.map((s, i) => {
                       const player = plMap.get(s.playerId);
                       const top3 = i < 3;
                       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
                       return (
                         <tr key={s.playerId} className={cn(
-                          "border-b border-border/50 transition-colors hover:bg-muted/30",
-                          top3 && "bg-amber-500/5",
+                          "border-b border-border/30 transition-all hover:bg-muted/50",
+                          top3 && "bg-gradient-to-r from-amber-500/8 to-amber-400/3",
                         )}>
-                          <td className="py-2.5 text-center px-2">
+                          <td className="py-3 text-center px-2">
                             {medal
-                              ? <span className="text-base">{medal}</span>
-                              : <span className="text-xs text-muted-foreground font-medium">{i + 1}</span>
+                              ? <span className="text-lg">{medal}</span>
+                              : <span className="text-xs text-muted-foreground font-bold">{i + 1}</span>
                             }
                           </td>
-                          <td className="py-2.5 px-4">
-                            <p className={cn("leading-tight truncate max-w-[11rem]", top3 ? "font-semibold" : "font-medium text-sm")}>
+                          <td className="py-3 px-4">
+                            <p className={cn("leading-tight truncate max-w-[11rem]", top3 ? "font-bold text-foreground" : "font-medium text-sm")}>
                               {player?.name ?? "Unknown"}
                             </p>
                             {player?.rollNo && (
-                              <p className="text-[10px] text-muted-foreground">{player.rollNo}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium">{player.rollNo}</p>
                             )}
                           </td>
-                          <td className="py-2.5 text-center px-2">
-                            <span className={cn("font-bold tabular-nums", top3 ? "text-base" : "text-sm")}>{s.score}</span>
+                          <td className="py-3 text-center px-2">
+                            <span className={cn("font-bold tabular-nums", top3 ? "text-base text-foreground" : "text-sm")}>{s.score}</span>
                           </td>
-                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-green-500">{s.wins}</td>
-                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-destructive">{s.losses}</td>
-                          <td className="py-2.5 text-center px-2 text-xs font-semibold text-blue-500">{s.draws}</td>
+                          <td className="py-3 text-center px-2 text-xs font-bold text-emerald-400">{s.wins}</td>
+                          <td className="py-3 text-center px-2 text-xs font-bold text-red-400">{s.losses}</td>
+                          <td className="py-3 text-center px-2 text-xs font-bold text-blue-400">{s.draws}</td>
                         </tr>
                       );
                     })}
@@ -457,18 +467,18 @@ export default function DisplayPage() {
       </div>
 
       {/* ── FOOTER ───────────────────────────────────────────── */}
-      <div className="border-t bg-muted/20 mt-4">
-        <div className="container mx-auto px-4 py-2 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">♟ Chess Club · Chess Pairing</span>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="border-t border-border/50 bg-gradient-to-r from-muted/30 to-muted/10 mt-6">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <span className="text-xs font-semibold text-muted-foreground">♟ Chess Club · Chess Pairing</span>
+          <div className="flex items-center gap-6 text-xs text-muted-foreground">
             {updated && (
-              <span>
+              <span className="font-medium">
                 Updated {updated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             )}
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-              <span>Refresh in {cd}s</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-emerald-300">Refresh in {cd}s</span>
             </div>
           </div>
         </div>
