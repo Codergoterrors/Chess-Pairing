@@ -275,6 +275,99 @@ export default function DisplayPage() {
         </div>
       </div>
 
+      {/* ── CHAMPIONS PODIUM (tournament completed) ─────────── */}
+      {t.status === "completed" && sortedSt.length >= 1 && (() => {
+        const gold   = sortedSt[0] ? plMap.get(sortedSt[0].playerId) : undefined;
+        const silver = sortedSt[1] ? plMap.get(sortedSt[1].playerId) : undefined;
+        const bronze = sortedSt[2] ? plMap.get(sortedSt[2].playerId) : undefined;
+
+        type PodiumCardProps = {
+          rank: 1 | 2 | 3;
+          player: ReturnType<typeof mapP> | undefined;
+          score: number;
+        };
+
+        const PodiumCard = ({ rank, player, score }: PodiumCardProps) => {
+          const styles = {
+            1: {
+              medal: "🏆",
+              cardCls: "border-yellow-500/40 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-lg shadow-yellow-500/10",
+              barCls: "bg-yellow-500/15 border-yellow-500/30",
+              barH: "h-24",
+              numCls: "text-yellow-400",
+              nameCls: "text-yellow-300 text-2xl",
+              scoreCls: "text-yellow-400 text-3xl",
+            },
+            2: {
+              medal: "🥈",
+              cardCls: "border-slate-400/30 bg-gradient-to-b from-slate-400/8 to-transparent",
+              barCls: "bg-slate-500/15 border-slate-400/30",
+              barH: "h-16",
+              numCls: "text-slate-400",
+              nameCls: "text-slate-300 text-xl",
+              scoreCls: "text-slate-400 text-2xl",
+            },
+            3: {
+              medal: "🥉",
+              cardCls: "border-amber-700/30 bg-gradient-to-b from-amber-700/8 to-transparent",
+              barCls: "bg-amber-800/15 border-amber-700/30",
+              barH: "h-12",
+              numCls: "text-amber-700",
+              nameCls: "text-amber-600 text-xl",
+              scoreCls: "text-amber-700 text-2xl",
+            },
+          } as const;
+          const s = styles[rank];
+
+          return (
+            <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+              <span className={rank === 1 ? "text-5xl" : "text-4xl"}>{s.medal}</span>
+              <Card className={cn("w-full", s.cardCls)}>
+                <CardContent className={cn("text-center", rank === 1 ? "p-5" : "p-4")}>
+                  <p className={cn("font-bold truncate", s.nameCls)}>{player?.name ?? "—"}</p>
+                  {player?.branch && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{player.branch}</p>
+                  )}
+                  <p className={cn("font-bold tabular-nums mt-2", s.scoreCls)}>{score}</p>
+                  <p className="text-xs text-muted-foreground">pts</p>
+                </CardContent>
+              </Card>
+              <div className={cn("w-full rounded-t-lg border flex items-center justify-center", s.barH, s.barCls)}>
+                <span className={cn("font-black text-3xl", s.numCls)}>{rank}</span>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="border-b bg-gradient-to-b from-card/60 to-transparent">
+            <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-6">
+              {/* Congratulations header */}
+              <div className="text-center space-y-1">
+                <p className="text-5xl mb-2">🎉</p>
+                <h2 className="text-3xl font-bold tracking-tight">Tournament Complete!</h2>
+                <p className="text-muted-foreground text-base">
+                  Congratulations to all participants of <span className="font-semibold text-foreground">{t.name}</span>
+                </p>
+              </div>
+
+              {/* Podium — order: 2nd | 1st | 3rd */}
+              <div className="flex items-end justify-center gap-4 w-full max-w-2xl">
+                {silver ? (
+                  <PodiumCard rank={2} player={silver} score={sortedSt[1].score} />
+                ) : <div className="flex-1" />}
+
+                <PodiumCard rank={1} player={gold} score={sortedSt[0].score} />
+
+                {bronze ? (
+                  <PodiumCard rank={3} player={bronze} score={sortedSt[2].score} />
+                ) : <div className="flex-1" />}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── MAIN CONTENT ───────────────────────────────────── */}
       <div className="flex-1 container mx-auto px-4 py-6 min-h-0">
         <div className="flex gap-6" style={{ minHeight: "calc(100vh - 220px)" }}>
