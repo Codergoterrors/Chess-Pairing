@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Refresh interval ──────────────────────────────────────────
-const REFRESH = 30;
+const REFRESH = 5;
 
 // ── Row mappers ───────────────────────────────────────────────
 function mapT(r: any) {
