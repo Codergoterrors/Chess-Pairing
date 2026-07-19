@@ -133,7 +133,46 @@ export default function DisplayPage() {
 
   const plMap    = useMemo(() => new Map(pl.map(p => [p.id, p])), [pl]);
   const roundPa  = useMemo(() => pa.filter(p => p.roundNumber === round).sort((a, b) => a.createdAt - b.createdAt), [pa, round]);
-  const sortedSt = useMemo(() => [...st].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz), [st]);
+  // Compute standings LIVE from pairings — avoids the race where the standings
+  // table hasn't been updated yet when the display refreshes (e.g. the moment
+  // a result is saved and the tournament simultaneously marks as "completed").
+  const sortedSt = useMemo(() => {
+    const map = new Map<string, {
+      playerId: string; score: number; wins: number;
+      losses: number; draws: number; buchholz: number;
+    }>();
+    pl.forEach(p => map.set(p.id, { playerId: p.id, score: 0, wins: 0, losses: 0, draws: 0, buchholz: 0 }));
+
+    pa.forEach(pairing => {
+      if (pairing.isBye) {
+        const s = map.get(pairing.player1Id);
+        if (s) { s.score += 1; s.wins += 1; }
+      } else if (pairing.result && pairing.player2Id) {
+        const s1 = map.get(pairing.player1Id);
+        const s2 = map.get(pairing.player2Id);
+        if (pairing.result === "win1") {
+          if (s1) { s1.score += 1; s1.wins += 1; }
+          if (s2) { s2.losses += 1; }
+        } else if (pairing.result === "win2") {
+          if (s1) { s1.losses += 1; }
+          if (s2) { s2.score += 1; s2.wins += 1; }
+        } else if (pairing.result === "draw") {
+          if (s1) { s1.score += 0.5; s1.draws += 1; }
+          if (s2) { s2.score += 0.5; s2.draws += 1; }
+        }
+      }
+    });
+
+    // Buchholz: sum of each opponent's score
+    pa.forEach(pairing => {
+      if (pairing.isBye || !pairing.result || !pairing.player2Id) return;
+      const s1 = map.get(pairing.player1Id);
+      const s2 = map.get(pairing.player2Id);
+      if (s1 && s2) { s1.buchholz += s2.score; s2.buchholz += s1.score; }
+    });
+
+    return [...map.values()].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
+  }, [pl, pa]);
   const done     = roundPa.filter(p => p.result || p.isBye).length;
   const maxRound = t ? Math.max(t.rounds, t.currentRound) : 1;
 
