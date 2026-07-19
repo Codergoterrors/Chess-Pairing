@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Upload, Eye } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Upload, Eye, Trophy } from "lucide-react";
 import { Player } from "@/lib/types";
 import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
@@ -26,7 +26,7 @@ const emptyForm = (): Partial<Player> => ({
 
 export default function PlayersPage() {
   const { toast } = useToast();
-  const { players, standings, addPlayer, updatePlayer, deletePlayer, bulkAddPlayers } = useChessData();
+  const { players, standings, tournaments, addPlayer, updatePlayer, deletePlayer, bulkAddPlayers } = useChessData();
 
   const [search, setSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
@@ -53,6 +53,50 @@ export default function PlayersPage() {
     });
     return stats;
   }, [players, standings]);
+
+  // Per-player tournament history: playerId → sorted list of tournament appearances
+  const playerHistory = useMemo(() => {
+    const map = new Map<string, Array<{
+      tournamentId: string;
+      name: string;
+      date?: number;
+      rank: number;
+      score: number;
+      wins: number;
+      losses: number;
+      draws: number;
+      buchholz: number;
+    }>>();
+
+    // For each tournament compute rank order once
+    const rankMap = new Map<string, Map<string, number>>(); // tournamentId → playerId → rank
+    tournaments.forEach(t => {
+      const tStandings = standings
+        .filter(s => s.tournamentId === t.id)
+        .sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
+      const rankForT = new Map<string, number>();
+      tStandings.forEach((s, idx) => rankForT.set(s.playerId, idx + 1));
+      rankMap.set(t.id, rankForT);
+    });
+
+    standings.forEach(s => {
+      const t = tournaments.find(t => t.id === s.tournamentId);
+      if (!t) return;
+      const rank = rankMap.get(t.id)?.get(s.playerId) ?? 0;
+      const entry = {
+        tournamentId: t.id, name: t.name,
+        date: t.startDate ?? t.createdAt,
+        rank, score: s.score,
+        wins: s.wins ?? 0, losses: s.losses ?? 0, draws: s.draws ?? 0,
+        buchholz: s.buchholz ?? 0,
+      };
+      const arr = map.get(s.playerId) ?? [];
+      arr.push(entry);
+      arr.sort((a, b) => (b.date ?? 0) - (a.date ?? 0)); // newest first
+      map.set(s.playerId, arr);
+    });
+    return map;
+  }, [standings, tournaments]);
 
   const filtered = useMemo(() =>
     players.filter(p =>
@@ -319,6 +363,46 @@ export default function PlayersPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Tournament History */}
+                {(() => {
+                  const history = playerHistory.get(viewingPlayer.id) ?? [];
+                  if (history.length === 0) return null;
+                  const rankLabel = (r: number) =>
+                    r === 1 ? "🥇 1st" : r === 2 ? "🥈 2nd" : r === 3 ? "🥉 3rd" : `#${r}`;
+                  return (
+                    <div className="border-t pt-3">
+                      <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium flex items-center gap-1">
+                        <Trophy className="h-3 w-3" /> Tournaments Played
+                      </p>
+                      <div className="space-y-2">
+                        {history.map(h => (
+                          <div key={h.tournamentId}
+                            className="rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-medium leading-tight truncate">{h.name}</p>
+                                {h.date && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {new Date(h.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="shrink-0 text-sm font-semibold">{rankLabel(h.rank)}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-2 text-xs">
+                              <span className="text-muted-foreground">Score <span className="font-semibold text-foreground">{h.score}</span></span>
+                              <span className="text-green-500 font-medium">{h.wins}W</span>
+                              <span className="text-red-500 font-medium">{h.losses}L</span>
+                              <span className="text-blue-500 font-medium">{h.draws}D</span>
+                              <span className="text-muted-foreground ml-auto">Buchholz {h.buchholz}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
