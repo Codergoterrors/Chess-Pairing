@@ -182,7 +182,21 @@ export default function TournamentDetailPage() {
       const activePlayers = tournament.format === "Knockout"
         ? tournamentPlayers.filter(p => {
             const standing = standingsMap.get(p.id);
-            return !standing || standing.losses === 0;
+
+            // ── Primary check: standings state ─────────────────────────────
+            if (standing && standing.losses > 0) return false;
+
+            // ── Secondary check: cross-verify via actual pairings history ──
+            // Guards against stale standings state (the bug that caused
+            // already-eliminated players to sneak into future rounds).
+            const actualLosses = tournamentPairings.filter(pa =>
+              !pa.isBye && pa.result && (
+                (pa.player1Id === p.id && pa.result === "win2") ||
+                (pa.player2Id === p.id && pa.result === "win1")
+              )
+            ).length;
+
+            return actualLosses === 0;
           })
         : tournamentPlayers;
 
