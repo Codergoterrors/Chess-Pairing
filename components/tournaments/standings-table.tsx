@@ -78,7 +78,12 @@ export function StandingsTable({ standings, players, title = "Tournament Standin
                     <TableCell className="text-sm text-muted-foreground">{p.year || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.division || "—"}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {player.isRated ? standing.rating : <span className="text-muted-foreground">NR</span>}
+                      {(() => {
+                        const elo = (p as any).estimatedElo || (p as any).officialElo || (p as any).fideRating || 0;
+                        return elo > 0
+                          ? <span className="font-semibold">{elo}</span>
+                          : <span className="text-muted-foreground">NR</span>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-center font-bold text-lg">
                       {standing.score.toFixed(1)}

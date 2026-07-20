@@ -198,8 +198,18 @@ export default function DisplayPage() {
       if (s1 && s2) { s1.buchholz += s2.score; s2.buchholz += s1.score; }
     });
 
-    return [...map.values()].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
-  }, [pl, pa]);
+    const computed = [...map.values()].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
+
+    // Fallback: if pairings computation gives all-zero scores (e.g. anon access
+    // issue or legacy tournament format) but the standings table has real data,
+    // use the standings table instead so past tournaments display correctly.
+    const hasRealData = computed.some(s => s.score > 0);
+    if (!hasRealData && st.length > 0) {
+      return [...st].sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
+    }
+
+    return computed;
+  }, [pl, pa, st]);
   const done     = roundPa.filter(p => p.result || p.isBye).length;
   const maxRound = t ? Math.max(t.rounds, t.currentRound) : 1;
 
