@@ -148,7 +148,8 @@ export function ExportStandings({ tournament, standings, players }: ExportStandi
         drawBadge(ctx, player.branch || "—", cols[3].x, rowY + ROW_H / 2 - 10, 20);
 
         // Rating
-        const ratingStr = (standing.rating && standing.rating > 0) ? standing.rating.toString() : "NR";
+        const elo = (player as any).estimatedElo || (player as any).officialElo || (player as any).fideRating || 0;
+        const ratingStr = elo > 0 ? elo.toString() : "NR";
         ctx.fillStyle = ratingStr === "NR" ? "#6b7280" : "#e5e7eb";
         ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
         drawAligned(ctx, ratingStr, cols[4].x, textY, cols[4].w, "right");
