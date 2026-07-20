@@ -82,6 +82,7 @@ export default function DisplayPage() {
   const [cd, setCd]           = useState(REFRESH);
   const [round, setRound]     = useState(1);
   const [realtimeOk, setRealtimeOk] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'pairings' | 'standings'>('pairings');
 
   const fetchAll = useCallback(async () => {
     const { data: tRow, error: tErr } = await supabase
@@ -258,20 +259,20 @@ export default function DisplayPage() {
 
       {/* ── HEADER ─────────────────────────────────────────── */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-start justify-between gap-2 sm:gap-4">
+          <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
             {/* LIVE pill */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-500/20 to-red-500/10 border border-red-500/40 shrink-0 mt-0.5 shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[11px] font-bold text-red-400 tracking-widest uppercase">Live</span>
+            <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-red-500/20 to-red-500/10 border border-red-500/40 shrink-0 mt-0.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-red-400 tracking-widest uppercase">Live</span>
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-3xl font-bold tracking-tight leading-tight truncate bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{t.name}</h1>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 font-medium">{t.format}</Badge>
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight truncate bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{t.name}</h1>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 sm:mt-2 flex-wrap">
+                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 font-medium text-[10px] sm:text-xs">{t.format}</Badge>
                 <Badge
                   className={cn(
-                    "font-medium border",
+                    "font-medium border text-[10px] sm:text-xs",
                     t.status === "in-progress" && "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
                     t.status === "completed"   && "bg-amber-500/20 text-amber-300 border-amber-500/40",
                     t.status === "planning"    && "bg-slate-500/20 text-slate-300 border-slate-500/40",
@@ -279,27 +280,22 @@ export default function DisplayPage() {
                 >
                   {t.status.replace("-", " ")}
                 </Badge>
-                <span className="text-sm text-muted-foreground font-medium">{pl.length} players</span>
-                <span className="text-muted-foreground/50">·</span>
-                <span className="text-sm text-muted-foreground font-medium">{t.rounds} rounds</span>
+                <span className="text-xs text-muted-foreground font-medium">{pl.length} players · {t.rounds} rounds</span>
                 {t.startDate && (
-                  <>
-                    <span className="text-muted-foreground/50">·</span>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                    </span>
-                  </>
+                  <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
+                    · {new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
                 )}
               </div>
             </div>
           </div>
 
           {/* Clock */}
-          <div className="text-right shrink-0 bg-gradient-to-br from-primary/10 to-primary/5 px-4 py-2.5 rounded-lg border border-primary/20">
-            <p className="text-2xl font-bold tabular-nums tracking-tight text-primary">
+          <div className="text-right shrink-0 bg-gradient-to-br from-primary/10 to-primary/5 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-lg border border-primary/20">
+            <p className="text-base sm:text-2xl font-bold tabular-nums tracking-tight text-primary">
               {clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </p>
-            <p className="text-xs text-muted-foreground mt-1 font-medium">
+            <p className="hidden sm:block text-xs text-muted-foreground mt-1 font-medium">
               {clock.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long" })}
             </p>
           </div>
@@ -308,26 +304,26 @@ export default function DisplayPage() {
 
       {/* ── ROUND SELECTOR ─────────────────────────────────── */}
       <div className="border-b bg-gradient-to-r from-muted/40 to-muted/20 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="outline" size="icon"
-              className="h-8 w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
+              className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
               disabled={round <= 1}
               onClick={() => setRound(r => r - 1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="text-sm">
-              <span className="font-bold text-lg">Round <span className="text-primary">{round}</span></span>
+              <span className="font-bold text-base sm:text-lg">Round <span className="text-primary">{round}</span></span>
               <span className="text-muted-foreground"> / {t.rounds}</span>
               {isCurrent && (
-                <Badge className="ml-3 text-xs py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Current Round</Badge>
+                <Badge className="ml-2 text-[10px] sm:text-xs py-0.5 sm:py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Current</Badge>
               )}
             </div>
             <Button
               variant="outline" size="icon"
-              className="h-8 w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
+              className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-primary/20 hover:border-primary/40 transition-colors"
               disabled={round >= maxRound}
               onClick={() => setRound(r => r + 1)}
             >
@@ -336,18 +332,36 @@ export default function DisplayPage() {
           </div>
 
           {roundPa.length > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
-                <span className="text-xs font-semibold text-muted-foreground">{done}/{roundPa.length} complete</span>
-                <div className="w-24 h-2 bg-muted/60 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+            <div className="flex items-center gap-2 bg-muted/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-border/50">
+              <span className="text-xs font-semibold text-muted-foreground">{done}/{roundPa.length}</span>
+              <div className="w-16 sm:w-24 h-2 bg-muted/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* ── MOBILE TAB BAR ──────────────────────────────────── */}
+      <div className="lg:hidden border-b bg-muted/20">
+        <div className="flex">
+          {(['pairings', 'standings'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setMobileTab(tab)}
+              className={cn(
+                "flex-1 py-2.5 text-sm font-bold capitalize tracking-wide transition-colors",
+                mobileTab === tab
+                  ? "border-b-2 border-primary text-primary bg-primary/5"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -417,18 +431,18 @@ export default function DisplayPage() {
 
         return (
           <div className="border-b bg-gradient-to-b from-card/60 to-transparent">
-            <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-6">
+            <div className="container mx-auto px-3 sm:px-4 py-5 sm:py-8 flex flex-col items-center gap-4 sm:gap-6">
               {/* Congratulations header */}
               <div className="text-center space-y-1">
-                <p className="text-5xl mb-2">🎉</p>
-                <h2 className="text-3xl font-bold tracking-tight">Tournament Complete!</h2>
-                <p className="text-muted-foreground text-base">
+                <p className="text-3xl sm:text-5xl mb-1 sm:mb-2">🎉</p>
+                <h2 className="text-xl sm:text-3xl font-bold tracking-tight">Tournament Complete!</h2>
+                <p className="text-muted-foreground text-sm sm:text-base">
                   Congratulations to all participants of <span className="font-semibold text-foreground">{t.name}</span>
                 </p>
               </div>
 
               {/* Podium — order: 2nd | 1st | 3rd */}
-              <div className="flex items-end justify-center gap-4 w-full max-w-2xl">
+              <div className="flex items-end justify-center gap-2 sm:gap-4 w-full max-w-xs sm:max-w-2xl">
                 {silver ? (
                   <PodiumCard rank={2} player={silver} score={sortedSt[1].score} />
                 ) : <div className="flex-1" />}
@@ -445,11 +459,11 @@ export default function DisplayPage() {
       })()}
 
       {/* ── MAIN CONTENT ───────────────────────────────────── */}
-      <div className="flex-1 container mx-auto px-4 py-6 min-h-0">
-        <div className="flex gap-6" style={{ minHeight: "calc(100vh - 220px)" }}>
+      <div className="flex-1 container mx-auto px-3 sm:px-4 py-4 sm:py-6 min-h-0">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
 
           {/* Pairings panel */}
-          <div className="flex-[3] flex flex-col gap-4 overflow-y-auto pr-2">
+          <div className={cn("flex-[3] flex flex-col gap-3 sm:gap-4", mobileTab !== 'pairings' && 'hidden lg:flex')}>
             <div className="flex items-center gap-2">
               <div className="h-6 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-full" />
               <p className="text-sm font-bold text-foreground uppercase tracking-wider">
@@ -480,9 +494,9 @@ export default function DisplayPage() {
                     pending && "border-primary/40 bg-primary/5 shadow-md shadow-primary/10"
                   )}
                 >
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-5">
                     {/* Board header */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                         Board #{idx + 1}
                       </span>
@@ -512,32 +526,32 @@ export default function DisplayPage() {
                         <span className="text-amber-400 text-2xl">⭐</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         {/* Player 1 */}
                         <div className={cn(
-                          "flex-1 p-4 rounded-xl transition-all border",
+                          "flex-1 p-2.5 sm:p-4 rounded-xl transition-all border",
                           isP1Win && "bg-gradient-to-br from-emerald-500/15 to-emerald-400/5 border-emerald-500/40 shadow-md shadow-emerald-500/10",
                           isDraw  && "bg-gradient-to-br from-blue-500/15 to-blue-400/5 border-blue-500/40 shadow-md shadow-blue-500/10",
                           !pairing.result && "bg-muted/40 border-border/70",
                         )}>
-                          <p className={cn("font-bold text-sm leading-snug", isP1Win ? "text-emerald-300" : "")}>
+                          <p className={cn("font-bold text-xs sm:text-sm leading-snug", isP1Win ? "text-emerald-300" : "")}>
                             {p1?.name ?? "Unknown"}
                             {isP1Win && " ✓"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            ⬜ {p1?.branch} · <span className="font-semibold text-foreground">{elo(p1)}</span>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                            ⬜ <span className="font-semibold text-foreground">{elo(p1)}</span>
                           </p>
                         </div>
 
                         {/* Score */}
-                        <div className="w-12 text-center shrink-0 flex flex-col items-center justify-center">
+                        <div className="w-8 sm:w-12 text-center shrink-0 flex flex-col items-center justify-center">
                           {pairing.result ? (
-                            <div className="space-y-1 bg-muted/50 px-2.5 py-2 rounded-lg border border-border/50">
-                              <p className={cn("text-base font-bold leading-none", isP1Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
+                            <div className="space-y-0.5 sm:space-y-1 bg-muted/50 px-1.5 sm:px-2.5 py-1.5 sm:py-2 rounded-lg border border-border/50">
+                              <p className={cn("text-sm sm:text-base font-bold leading-none", isP1Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
                                 {isDraw ? "½" : isP1Win ? "1" : "0"}
                               </p>
-                              <p className="text-[9px] text-muted-foreground font-semibold">—</p>
-                              <p className={cn("text-base font-bold leading-none", isP2Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
+                              <p className="text-[8px] sm:text-[9px] text-muted-foreground font-semibold">—</p>
+                              <p className={cn("text-sm sm:text-base font-bold leading-none", isP2Win ? "text-emerald-400" : isDraw ? "text-blue-400" : "text-red-400")}>
                                 {isDraw ? "½" : isP2Win ? "1" : "0"}
                               </p>
                             </div>
@@ -548,17 +562,17 @@ export default function DisplayPage() {
 
                         {/* Player 2 */}
                         <div className={cn(
-                          "flex-1 p-4 rounded-xl transition-all border text-right",
+                          "flex-1 p-2.5 sm:p-4 rounded-xl transition-all border text-right",
                           isP2Win && "bg-gradient-to-br from-emerald-500/15 to-emerald-400/5 border-emerald-500/40 shadow-md shadow-emerald-500/10",
                           isDraw  && "bg-gradient-to-br from-blue-500/15 to-blue-400/5 border-blue-500/40 shadow-md shadow-blue-500/10",
                           !pairing.result && "bg-muted/40 border-border/70",
                         )}>
-                          <p className={cn("font-bold text-sm leading-snug", isP2Win ? "text-emerald-300" : "")}>
+                          <p className={cn("font-bold text-xs sm:text-sm leading-snug", isP2Win ? "text-emerald-300" : "")}>
                             {isP2Win && "✓ "}
                             {p2?.name ?? "Unknown"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            <span className="font-semibold text-foreground">{elo(p2)}</span> · {p2?.branch} ⬛
+                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                            <span className="font-semibold text-foreground">{elo(p2)}</span> ⬛
                           </p>
                         </div>
                       </div>
@@ -570,8 +584,8 @@ export default function DisplayPage() {
           </div>
 
           {/* Standings panel */}
-          <div className="flex-[2] overflow-y-auto pr-2">
-            <Card className="sticky top-0 border-border/80 shadow-lg">
+          <div className={cn("flex-[2]", mobileTab !== 'standings' && 'hidden lg:block')}>
+            <Card className="border-border/80 shadow-lg">
               <CardHeader className="pb-3 pt-5 px-5 border-b border-border/50">
                 <div className="flex items-center gap-2">
                   <div className="h-5 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-full" />
@@ -610,12 +624,12 @@ export default function DisplayPage() {
                               : <span className="text-xs text-muted-foreground font-bold">{i + 1}</span>
                             }
                           </td>
-                          <td className="py-3 px-4">
-                            <p className={cn("leading-tight truncate max-w-[11rem]", top3 ? "font-bold text-foreground" : "font-medium text-sm")}>
+                          <td className="py-2.5 sm:py-3 px-2 sm:px-4">
+                            <p className={cn("leading-tight truncate max-w-[8rem] sm:max-w-[11rem]", top3 ? "font-bold text-foreground" : "font-medium text-xs sm:text-sm")}>
                               {player?.name ?? "Unknown"}
                             </p>
                             {player?.rollNo && (
-                              <p className="text-[10px] text-muted-foreground font-medium">{player.rollNo}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium hidden sm:block">{player.rollNo}</p>
                             )}
                           </td>
                           <td className="py-3 text-center px-2">
@@ -636,26 +650,26 @@ export default function DisplayPage() {
       </div>
 
       {/* ── FOOTER ───────────────────────────────────────────── */}
-      <div className="border-t border-border/50 bg-gradient-to-r from-muted/30 to-muted/10 mt-6">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="border-t border-border/50 bg-gradient-to-r from-muted/30 to-muted/10 mt-4 sm:mt-6">
+        <div className="container mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs font-semibold text-muted-foreground">♟ Chess Club · Chess Pairing</span>
-          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 sm:gap-6 text-xs text-muted-foreground">
             {updated && (
-              <span className="font-medium">
+              <span className="hidden sm:inline font-medium">
                 Updated {updated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             )}
-              {realtimeOk ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-semibold text-emerald-300">Live · Real-time</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                  <span className="font-semibold text-yellow-300">Refresh in {cd}s</span>
-                </div>
-              )}
+            {realtimeOk ? (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-semibold text-emerald-300 text-[10px] sm:text-xs">Live · Real-time</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                <span className="font-semibold text-yellow-300 text-[10px] sm:text-xs">Refresh in {cd}s</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
