@@ -385,8 +385,8 @@ export default function DisplayPage() {
               barCls: "bg-yellow-500/15 border-yellow-500/30",
               barH: "h-24",
               numCls: "text-yellow-400",
-              nameCls: "text-yellow-300 text-2xl",
-              scoreCls: "text-yellow-400 text-3xl",
+              nameCls: "text-yellow-300 text-sm sm:text-lg",
+              scoreCls: "text-yellow-400 text-2xl sm:text-3xl",
             },
             2: {
               medal: "🥈",
@@ -394,8 +394,8 @@ export default function DisplayPage() {
               barCls: "bg-slate-500/15 border-slate-400/30",
               barH: "h-16",
               numCls: "text-slate-400",
-              nameCls: "text-slate-300 text-xl",
-              scoreCls: "text-slate-400 text-2xl",
+              nameCls: "text-slate-300 text-xs sm:text-base",
+              scoreCls: "text-slate-400 text-xl sm:text-2xl",
             },
             3: {
               medal: "🥉",
@@ -403,8 +403,8 @@ export default function DisplayPage() {
               barCls: "bg-amber-800/15 border-amber-700/30",
               barH: "h-12",
               numCls: "text-amber-700",
-              nameCls: "text-amber-600 text-xl",
-              scoreCls: "text-amber-700 text-2xl",
+              nameCls: "text-amber-600 text-xs sm:text-base",
+              scoreCls: "text-amber-700 text-xl sm:text-2xl",
             },
           } as const;
           const s = styles[rank];
@@ -414,9 +414,9 @@ export default function DisplayPage() {
               <span className={rank === 1 ? "text-5xl" : "text-4xl"}>{s.medal}</span>
               <Card className={cn("w-full", s.cardCls)}>
                 <CardContent className={cn("text-center", rank === 1 ? "p-5" : "p-4")}>
-                  <p className={cn("font-bold truncate", s.nameCls)}>{player?.name ?? "—"}</p>
+                  <p className={cn("font-bold break-words line-clamp-2 leading-tight", s.nameCls)}>{player?.name ?? "—"}</p>
                   {player?.branch && (
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{player.branch}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 break-words">{player.branch}</p>
                   )}
                   <p className={cn("font-bold tabular-nums mt-2", s.scoreCls)}>{score}</p>
                   <p className="text-xs text-muted-foreground">pts</p>
