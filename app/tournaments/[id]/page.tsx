@@ -179,7 +179,7 @@ export default function TournamentDetailPage() {
     setIsGeneratingPairings(true);
 
     try {
-      const activePlayers = tournament.format === "Knockout"
+      const activePlayers = (tournament.format === "Knockout" || tournament.format === "KnockoutCollege")
         ? tournamentPlayers.filter(p => {
             const standing = standingsMap.get(p.id);
 
@@ -200,7 +200,7 @@ export default function TournamentDetailPage() {
           })
         : tournamentPlayers;
 
-      const isKnockoutRound1 = tournament.format === "Knockout" && currentRound === 1;
+      const isKnockoutRound1 = tournament.format === "KnockoutCollege" && currentRound === 1;
 
       const result = isKnockoutRound1
         ? generateSeededKnockoutPairings({
@@ -229,7 +229,7 @@ export default function TournamentDetailPage() {
       //          ≤1 undefeated + exactly 2 one-loss players who never played →
       //          generate their 3rd-place match in this same round.
       // ─────────────────────────────────────────────────────────────────────
-      if (tournament.format === "Knockout") {
+      if (tournament.format === "Knockout" || tournament.format === "KnockoutCollege") {
         const oneLossPlayers = tournamentPlayers.filter(p => {
           const s = standingsMap.get(p.id);
           return s && s.losses === 1;

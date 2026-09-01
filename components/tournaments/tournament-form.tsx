@@ -30,7 +30,7 @@ export function TournamentForm({
   const router = useRouter();
   const [name, setName] = useState(initialTournament?.name || "");
   const [description, setDescription] = useState(initialTournament?.description || "");
-  const [format, setFormat] = useState<"Swiss" | "RoundRobin" | "Knockout">(initialTournament?.format || "Swiss");
+  const [format, setFormat] = useState<"Swiss" | "RoundRobin" | "Knockout" | "KnockoutCollege">(initialTournament?.format || "Swiss");
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(
     new Set(initialTournament?.players || [])
   );
@@ -128,6 +128,7 @@ export function TournamentForm({
                     <SelectItem value="Swiss">Swiss System</SelectItem>
                     <SelectItem value="RoundRobin">Round Robin</SelectItem>
                     <SelectItem value="Knockout">Knockout</SelectItem>
+                    <SelectItem value="KnockoutCollege">Knockout (College Mode)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -143,6 +144,8 @@ export function TournamentForm({
                       ? `(${selectedPlayers.size} players)` 
                       : format === "Swiss"
                       ? `(Swiss system)`
+                      : format === "KnockoutCollege"
+                      ? `(Knockout College)`
                       : `(Knockout)`}
                   </p>
                 </div>

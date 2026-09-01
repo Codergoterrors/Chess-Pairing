@@ -39,7 +39,7 @@ export interface Tournament {
   id: string;
   name: string;
   description?: string;
-  format: "Swiss" | "RoundRobin" | "Knockout";
+  format: "Swiss" | "RoundRobin" | "Knockout" | "KnockoutCollege";
   status: "planning" | "in-progress" | "completed" | "upcoming";
   rounds: number;
   currentRound: number;
@@ -109,7 +109,7 @@ export function calculateRounds(playerCount: number, format: string): number {
     return Math.ceil(Math.log2(Math.max(playerCount, 2)));
   } else if (format === "RoundRobin") {
     return Math.max(playerCount - 1, 1);
-  } else if (format === "Knockout") {
+  } else if (format === "Knockout" || format === "KnockoutCollege") {
     return Math.ceil(Math.log2(playerCount));
   }
   return 1;
