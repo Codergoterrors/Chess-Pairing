@@ -16,7 +16,7 @@ import { ExportStandings } from "@/components/tournaments/export-standings";
 import { AddPlayerDialog } from "@/components/tournaments/add-player-dialog";
 import { TimeControlDialog } from "@/components/tournaments/time-control-dialog";
 import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEntryDialog";
-import { generateSwissPairings } from "@/lib/pairing-algorithm";
+import { generateSwissPairings, generateSeededKnockoutPairings } from "@/lib/pairing-algorithm";
 import { Player, Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCurrentRating, havePlayedBefore, generateId } from "@/lib/utils-chess";
@@ -200,13 +200,23 @@ export default function TournamentDetailPage() {
           })
         : tournamentPlayers;
 
-      const result = generateSwissPairings({
-        players: activePlayers,
-        standings: tournamentStandings,
-        pairings: tournamentPairings,
-        round: currentRound,
-        byes: tournament.byes,
-      });
+      const isKnockoutRound1 = tournament.format === "Knockout" && currentRound === 1;
+
+      const result = isKnockoutRound1
+        ? generateSeededKnockoutPairings({
+            players: activePlayers,
+            standings: tournamentStandings,
+            pairings: tournamentPairings,
+            round: currentRound,
+            byes: tournament.byes,
+          })
+        : generateSwissPairings({
+            players: activePlayers,
+            standings: tournamentStandings,
+            pairings: tournamentPairings,
+            round: currentRound,
+            byes: tournament.byes,
+          });
 
       let newPairingsWithTournament = result.pairings.map(p => ({ ...p, tournamentId: tournament.id }));
 

@@ -164,6 +164,63 @@ export function generateSwissPairings(input: PairingInput): PairingResult {
 }
 
 /**
+ * Seeded Knockout Pairing — Round 1 only
+ *
+ * Sorts all players by ELO descending and pairs:
+ *   Seed #1 vs Seed #N
+ *   Seed #2 vs Seed #(N-1)
+ *   ...
+ * Strongest players are separated so they can only meet in finals/semis.
+ * Lowest seed gets the BYE if odd number of players.
+ */
+export function generateSeededKnockoutPairings(input: PairingInput): PairingResult {
+  const { players, round } = input;
+
+  if (players.length < 2) return { pairings: [], byes: [] };
+
+  // Sort by ELO descending — unrated players sort last
+  const seeded = [...players].sort((a, b) => {
+    const ra = calculateCurrentRating(a) || 0;
+    const rb = calculateCurrentRating(b) || 0;
+    return rb - ra;
+  });
+
+  const pairings: Pairing[] = [];
+  const byes: string[] = [];
+  let pool = [...seeded];
+
+  // Odd players → lowest seed (last after sort) gets BYE
+  if (pool.length % 2 !== 0) {
+    const byePlayer = pool.pop()!;
+    byes.push(byePlayer.id);
+    pairings.push({
+      id: generateId(),
+      tournamentId: "",
+      roundNumber: round,
+      player1Id: byePlayer.id,
+      isBye: true,
+      createdAt: Date.now(),
+    });
+  }
+
+  // Pair: seed i vs seed (n-1-i)  →  1st vs last, 2nd vs 2nd-last, …
+  const n = pool.length;
+  for (let i = 0; i < n / 2; i++) {
+    pairings.push({
+      id: generateId(),
+      tournamentId: "",
+      roundNumber: round,
+      player1Id: pool[i].id,
+      player2Id: pool[n - 1 - i].id,
+      isBye: false,
+      createdAt: Date.now() + i + 1,
+    });
+  }
+
+  return { pairings, byes };
+}
+
+/**
  * Update standings after a round result
  */
 export function updateStandingsAfterRound(
