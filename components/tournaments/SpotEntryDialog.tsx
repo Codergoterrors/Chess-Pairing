@@ -68,10 +68,13 @@ export function SpotEntryDialog({
 
   // Players not yet in the tournament
   const eligible = allPlayers.filter(p => !(tournament.players as string[]).includes(p.id));
-  const filtered = eligible.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.rollNo ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = eligible.filter(p => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const combined = `${p.name ?? ""} ${p.rollNo ?? ""} ${p.branch ?? ""}`.toLowerCase().replace(/\s+/g, " ");
+    return tokens.every(token => combined.includes(token));
+  });
 
   const toggle = (id: string) => {
     const s = new Set(selected);

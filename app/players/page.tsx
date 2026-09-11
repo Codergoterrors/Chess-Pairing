@@ -98,12 +98,22 @@ export default function PlayersPage() {
     return map;
   }, [standings, tournaments]);
 
-  const filtered = useMemo(() =>
-    players.filter(p =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.rollNo ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (p.branch ?? "").toLowerCase().includes(search.toLowerCase())
-    ), [players, search]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return players;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    return players.filter(p => {
+      const name = (p.name ?? "").toLowerCase();
+      const rollNo = (p.rollNo ?? "").toLowerCase();
+      const branch = (p.branch ?? "").toLowerCase();
+      const enrollmentNo = (p.enrollmentNo ?? "").toLowerCase();
+      const combined = `${name} ${rollNo} ${branch} ${enrollmentNo}`.replace(/\s+/g, " ");
+
+      return tokens.every(token => combined.includes(token));
+    });
+  }, [players, search]);
 
   /** Returns display info for the rating column */
   const getEloDisplay = (p: Player) => {
