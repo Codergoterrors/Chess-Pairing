@@ -92,7 +92,7 @@ export default function ManualResultPage() {
 
   const canProceedToStep3 = entryMode === "bye" ? !!player1Id : (!!player1Id && !!player2Id);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!tournament || !player1Id) return;
 
     let updatedPairings: Pairing[];
