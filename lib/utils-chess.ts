@@ -81,8 +81,8 @@ export const formatDate = (timestamp: number): string => {
   return new Date(timestamp).toLocaleDateString();
 };
 
-// Format player display name
-export const formatPlayerName = (player: Player): string => {
+// Format player display label
+export const formatPlayerDisplayName = (player: Player): string => {
   return `${player.name} (${player.rollNo}) - ${player.branch}`;
 };
 
