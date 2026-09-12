@@ -5,6 +5,7 @@ import { Player, Tournament, Pairing, Standing } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPlayerName } from "@/lib/utils-chess";
+import { NSD_TOURNAMENT, NSD_PAIRINGS, NSD_STANDINGS } from "@/lib/national-sports-day-tournament";
 
 // ── DB row → app type mappers ────────────────────────────────────────────────
 function rowToPlayer(row: any): Player {
@@ -269,6 +270,29 @@ export const useChessData = () => {
             setPlayers((prev) => [...prev, ...seededPlayers]);
           } else {
             console.error("Failed to auto-seed National Sports Day participants:", seedError);
+          }
+        }
+
+        // Auto-seed National Sports Day - Chess Tournament if not already present
+        const hasNSDTournament = (tRes.data ?? []).some((t: any) => t.name === "National Sports Day - Chess Tournament");
+        if (!hasNSDTournament && NSD_TOURNAMENT) {
+          const tRow = { ...NSD_TOURNAMENT, user_id: user.id };
+          const pRows = NSD_PAIRINGS.map((p) => ({ ...p, user_id: user.id }));
+          const sRows = NSD_STANDINGS.map((s) => ({ ...s, user_id: user.id }));
+
+          const [tIns, pIns, sIns] = await Promise.all([
+            supabase.from("tournaments").insert(tRow),
+            supabase.from("pairings").insert(pRows),
+            supabase.from("standings").insert(sRows),
+          ]);
+
+          if (!tIns.error && !pIns.error && !sIns.error) {
+            console.log("Auto-seeded National Sports Day tournament, pairings, and standings into Supabase!");
+            setTournaments((prev) => [...prev, rowToTournament(tRow)]);
+            setPairings((prev) => [...prev, ...pRows.map(rowToPairing)]);
+            setStandings((prev) => [...prev, ...sRows.map(rowToStanding)]);
+          } else {
+            console.error("Error auto-seeding NSD tournament:", tIns.error || pIns.error || sIns.error);
           }
         }
       } catch (err) {
