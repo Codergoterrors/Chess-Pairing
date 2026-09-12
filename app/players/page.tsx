@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Plus, Search, Upload, Eye, Trophy } from "lucide-react";
 import { Player } from "@/lib/types";
+import { formatPlayerName } from "@/lib/utils-chess";
 import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
 const BRANCHES = ["CE", "CSE CySec", "CSE AIML", "IT", "ENTC", "ME", "Civil", "Other"];
@@ -165,11 +166,16 @@ export default function PlayersPage() {
       return;
     }
 
+    const cleanForm = {
+      ...form,
+      name: formatPlayerName(form.name),
+    };
+
     if (editingPlayer) {
-      await updatePlayer({ ...editingPlayer, ...form } as Player);
+      await updatePlayer({ ...editingPlayer, ...cleanForm } as Player);
       toast({ title: "Player updated!" });
     } else {
-      await addPlayer({ ...form, id: crypto.randomUUID(), createdAt: Date.now() } as Player);
+      await addPlayer({ ...cleanForm, id: crypto.randomUUID(), createdAt: Date.now() } as Player);
       toast({ title: "Player added!" });
     }
     setShowDialog(false);

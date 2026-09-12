@@ -4,12 +4,13 @@ import { useState, useCallback, useEffect } from "react";
 import { Player, Tournament, Pairing, Standing } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatPlayerName } from "@/lib/utils-chess";
 
 // ── DB row → app type mappers ────────────────────────────────────────────────
 function rowToPlayer(row: any): Player {
   return {
     id: row.id,
-    name: row.name,
+    name: formatPlayerName(row.name),
     rollNo: row.roll_no,
     branch: row.branch,
     class: row.class,
@@ -35,7 +36,7 @@ function playerToRow(player: Player, userId: string) {
   return {
     id: player.id,
     user_id: userId,
-    name: player.name,
+    name: formatPlayerName(player.name),
     roll_no: player.rollNo,
     branch: player.branch,
     class: player.class,
@@ -180,10 +181,32 @@ export const useChessData = () => {
           supabase.from("standings").select("*").eq("user_id", user.id),
         ]);
 
-        setPlayers((pRes.data ?? []).map(rowToPlayer));
+        const rawPlayers = pRes.data ?? [];
+        setPlayers(rawPlayers.map(rowToPlayer));
         setTournaments((tRes.data ?? []).map(rowToTournament));
         setPairings((paRes.data ?? []).map(rowToPairing));
         setStandings((stRes.data ?? []).map(rowToStanding));
+
+        // Auto-migrate existing players in Supabase whose names are unformatted (e.g. ALL CAPS or lowercase)
+        const unformatted = rawPlayers.filter((r: any) => {
+          const proper = formatPlayerName(r.name);
+          return proper && proper !== r.name;
+        });
+
+        if (unformatted.length > 0) {
+          Promise.all(
+            unformatted.map((r: any) =>
+              supabase
+                .from("players")
+                .update({ name: formatPlayerName(r.name) })
+                .eq("id", r.id)
+            )
+          ).then(() => {
+            console.log(`Auto-formatted ${unformatted.length} player name(s) in Supabase.`);
+          }).catch((err) => {
+            console.error("Auto-migrating player names error:", err);
+          });
+        }
       } catch (err) {
         console.error("Failed to load data from Supabase:", err);
       } finally {
@@ -197,23 +220,25 @@ export const useChessData = () => {
   // ── Player operations ─────────────────────────────────────────────────────
   const addPlayer = useCallback(async (player: Player) => {
     if (!user) return;
-    setPlayers(prev => [...prev, player]); // optimistic
-    const { error } = await supabase.from("players").insert(playerToRow(player, user.id));
+    const cleanPlayer = { ...player, name: formatPlayerName(player.name) };
+    setPlayers(prev => [...prev, cleanPlayer]); // optimistic
+    const { error } = await supabase.from("players").insert(playerToRow(cleanPlayer, user.id));
     if (error) {
       console.error("addPlayer:", error);
-      setPlayers(prev => prev.filter(p => p.id !== player.id));
+      setPlayers(prev => prev.filter(p => p.id !== cleanPlayer.id));
     }
   }, [user]);
 
   // Bulk insert many players in one Supabase call (used by CSV/Excel import)
   const bulkAddPlayers = useCallback(async (newPlayers: Player[]) => {
     if (!user || newPlayers.length === 0) return;
-    setPlayers(prev => [...prev, ...newPlayers]); // optimistic
-    const rows = newPlayers.map(p => playerToRow(p, user.id));
+    const cleanPlayers = newPlayers.map(p => ({ ...p, name: formatPlayerName(p.name) }));
+    setPlayers(prev => [...prev, ...cleanPlayers]); // optimistic
+    const rows = cleanPlayers.map(p => playerToRow(p, user.id));
     const { error } = await supabase.from("players").insert(rows);
     if (error) {
       console.error("bulkAddPlayers:", error);
-      const ids = new Set(newPlayers.map(p => p.id));
+      const ids = new Set(cleanPlayers.map(p => p.id));
       setPlayers(prev => prev.filter(p => !ids.has(p.id)));
       throw error;
     }
@@ -221,8 +246,9 @@ export const useChessData = () => {
 
   const updatePlayer = useCallback(async (player: Player) => {
     if (!user) return;
-    setPlayers(prev => prev.map(p => p.id === player.id ? player : p));
-    const { error } = await supabase.from("players").update(playerToRow(player, user.id)).eq("id", player.id);
+    const cleanPlayer = { ...player, name: formatPlayerName(player.name) };
+    setPlayers(prev => prev.map(p => p.id === cleanPlayer.id ? cleanPlayer : p));
+    const { error } = await supabase.from("players").update(playerToRow(cleanPlayer, user.id)).eq("id", cleanPlayer.id);
     if (error) console.error("updatePlayer:", error);
   }, [user]);
 

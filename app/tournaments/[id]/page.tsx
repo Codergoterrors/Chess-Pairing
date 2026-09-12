@@ -19,7 +19,7 @@ import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEn
 import { generateSwissPairings, generateSeededKnockoutPairings } from "@/lib/pairing-algorithm";
 import { Player, Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { calculateCurrentRating, havePlayedBefore, generateId } from "@/lib/utils-chess";
+import { calculateCurrentRating, havePlayedBefore, generateId, formatPlayerName } from "@/lib/utils-chess";
 import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import Link from "next/link";
 
@@ -352,7 +352,7 @@ export default function TournamentDetailPage() {
     // 1. Build and register brand-new players
     const newPlayerObjects: Player[] = newDrafts.map(d => ({
       id: crypto.randomUUID(),
-      name: d.name, rollNo: d.rollNo, branch: d.branch,
+      name: formatPlayerName(d.name), rollNo: d.rollNo, branch: d.branch,
       year: d.year || undefined, division: d.division || undefined,
       program: d.program || undefined, enrollmentNo: d.enrollmentNo || undefined,
       mobileNo: d.mobileNo || undefined, email: d.email || undefined,

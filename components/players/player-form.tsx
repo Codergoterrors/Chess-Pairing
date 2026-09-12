@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Player, BRANCHES } from "@/lib/types";
-import { generateId } from "@/lib/utils-chess";
+import { generateId, formatPlayerName } from "@/lib/utils-chess";
 
 interface PlayerFormProps {
   onSubmit: (player: Player) => void;
@@ -34,7 +34,7 @@ export function PlayerForm({ onSubmit, initialPlayer, isSubmitting = false }: Pl
 
     const player: Player = {
       id: initialPlayer?.id || generateId(),
-      name: name.trim(),
+      name: formatPlayerName(name),
       rollNo: rollNo.trim(),
       branch: branch as typeof branch,
       class: classYear.trim(),

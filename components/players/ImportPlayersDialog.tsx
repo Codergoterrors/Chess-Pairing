@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, Download, RefreshCw, FilePen } from "lucide-react";
 import { Player } from "@/lib/types";
+import { formatPlayerName } from "@/lib/utils-chess";
 import * as XLSX from "xlsx";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -199,7 +200,7 @@ function parseRows(
           if (/^\d+(\.\d+)?$/.test(v))  errors.push(`Name "${v}" looks like a number`);
           else if (v.length < 2)         errors.push("Name too short");
           else if (v.length > 120)       errors.push("Name too long");
-          else                           player.name = v;
+          else                           player.name = formatPlayerName(v);
           break;
         }
         case "rollNo":

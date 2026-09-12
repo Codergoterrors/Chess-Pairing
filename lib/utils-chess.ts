@@ -4,6 +4,29 @@ import { Player, Pairing, Standing } from "./types";
 // Generate unique ID
 export const generateId = (): string => uuidv4();
 
+/**
+ * Formats a player's name so that:
+ * - The first character of each word is capitalized (CAPS).
+ * - All other characters in each word are lowercase (small).
+ * - Trims leading, trailing, and excessive blank spaces.
+ *
+ * Examples:
+ *   "OMKAR" -> "Omkar"
+ *   "OMkar" -> "Omkar"
+ *   "omkar" -> "Omkar"
+ *   "OMKAR BHAGAT" -> "Omkar Bhagat"
+ *   "VIKALKUMAR VITHAL SHINDE" -> "Vikalkumar Vithal Shinde"
+ */
+export const formatPlayerName = (name: string): string => {
+  if (!name || typeof name !== "string") return "";
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 // Calculate Elo rating change
 export const calculateEloChange = (playerElo: number, opponentElo: number, result: "win" | "draw" | "loss", k = 32): number => {
   const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));

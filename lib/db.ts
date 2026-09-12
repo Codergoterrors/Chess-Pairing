@@ -1,12 +1,13 @@
 import { supabase } from "./supabase";
 import { Player, Tournament, Pairing, Standing } from "./types";
+import { formatPlayerName } from "./utils-chess";
 
 // ── Type mappers ─────────────────────────────────────────────────────────────
 
 function rowToPlayer(row: any): Player {
   return {
     id: row.id,
-    name: row.name,
+    name: formatPlayerName(row.name),
     rollNo: row.roll_no,
     branch: row.branch,
     year: row.year ?? "",
@@ -23,7 +24,7 @@ function playerToRow(player: Player, userId: string) {
   return {
     id: player.id,
     user_id: userId,
-    name: player.name,
+    name: formatPlayerName(player.name),
     roll_no: player.rollNo ?? "",
     branch: player.branch ?? "",
     year: player.year ?? "",

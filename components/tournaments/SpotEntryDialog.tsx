@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Player } from "@/lib/types";
+import { formatPlayerName } from "@/lib/utils-chess";
 import { UserPlus, Search, Plus, ChevronDown, ChevronUp, X } from "lucide-react";
 
 const BRANCHES = [
@@ -84,7 +85,11 @@ export function SpotEntryDialog({
 
   const stageNewPlayer = () => {
     if (!draft.name.trim()) return;
-    setStaged(prev => [...prev, { key: `${Date.now()}-${Math.random()}`, data: { ...draft } }]);
+    const cleanDraft = {
+      ...draft,
+      name: formatPlayerName(draft.name),
+    };
+    setStaged(prev => [...prev, { key: `${Date.now()}-${Math.random()}`, data: cleanDraft }]);
     setDraft(blankDraft());
     setShowForm(false);
   };
