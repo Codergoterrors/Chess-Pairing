@@ -115,25 +115,22 @@ export default function TournamentDetailPage() {
   const tournamentPlayers = useMemo(() => players.filter((p) => tournament?.players.includes(p.id) || false), [players, tournament]);
   const playersMap = useMemo(() => new Map(tournamentPlayers.map((p) => [p.id, p])), [tournamentPlayers]);
   const tournamentPairings = useMemo(() => pairings.filter((p) => p.tournamentId === id), [pairings, id]);
-  const tournamentStandings = useMemo(() => standings.filter((s) => s.tournamentId === id as string), [standings, id]);
+  
+  // Dynamically recalculate standings from scratch from ALL completed pairings and BYEs
+  // This guarantees standings are 100% synchronized with pairing results and BYEs at all times.
+  const standingsMap = useMemo(() => {
+    if (!tournament) return new Map<string, Standing>();
+    return recalculateStandingsFromScratch(
+      tournamentPairings,
+      tournament.players,
+      playersMap,
+      tournament.id
+    );
+  }, [tournamentPairings, tournament, playersMap]);
 
-  // Initialize standings if not exists
-  useEffect(() => {
-    if (!tournament || tournamentPlayers.length === 0 || !isLoaded) return;
-    const existingStandings = standings.filter((s) => s.tournamentId === tournament.id);
-    if (existingStandings.length > 0) return;
-    tournamentPlayers.forEach((player) => {
-      addStanding({
-        playerId: player.id,
-        tournamentId: tournament.id,
-        score: 0, buchholz: 0,
-        rating: calculateCurrentRating(player),
-        wins: 0, losses: 0, draws: 0, gamesPlayed: 0,
-      });
-    });
-  }, [tournament?.id, isLoaded, tournamentPlayers.length]);
-
-  const standingsMap = useMemo(() => new Map(tournamentStandings.map((s) => [s.playerId, s])), [tournamentStandings]);
+  const tournamentStandings = useMemo(() => {
+    return Array.from(standingsMap.values()).sort((a, b) => b.score - a.score || b.buchholz - a.buchholz);
+  }, [standingsMap]);
 
   // ── Shared: push recalculated standings to storage ───────────────────────
   const pushRecalculatedStandings = (updatedPairings: Pairing[]) => {
