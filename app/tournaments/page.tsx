@@ -12,18 +12,26 @@ export default function TournamentsPage() {
   const { players, tournaments, isLoaded, addTournament, updateTournament, deleteTournament } = useChessData();
   const { toast } = useToast();
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("list");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddTournament = async (tournament: Tournament) => {
     setIsSubmitting(true);
     try {
       if (editingTournament) {
-        updateTournament(tournament);
+        updateTournament({
+          ...editingTournament,
+          ...tournament,
+          // Retain existing fields if not edited
+          status: editingTournament.status,
+          currentRound: editingTournament.currentRound,
+        });
         toast({
           title: "Success",
           description: `${tournament.name} has been updated.`,
         });
         setEditingTournament(null);
+        setActiveTab("list");
       } else {
         addTournament(tournament);
         toast({
@@ -55,7 +63,12 @@ export default function TournamentsPage() {
         <p className="text-muted-foreground mt-2">Manage chess tournaments and pairings</p>
       </div>
 
-      <Tabs defaultValue="list" className="w-full">
+      <Tabs value={activeTab} onValueChange={(val) => {
+        setActiveTab(val);
+        if (val === "list") {
+          setEditingTournament(null);
+        }
+      }} className="w-full">
         <TabsList>
           <TabsTrigger value="list">Tournaments ({tournaments.length})</TabsTrigger>
           <TabsTrigger value="create">{editingTournament ? "Edit Tournament" : "Create Tournament"}</TabsTrigger>
@@ -67,6 +80,7 @@ export default function TournamentsPage() {
             players={players}
             onEdit={(tournament) => {
               setEditingTournament(tournament);
+              setActiveTab("create");
             }}
             onDelete={handleDeleteTournament}
             isLoading={!isLoaded}
@@ -76,6 +90,7 @@ export default function TournamentsPage() {
         <TabsContent value="create" className="mt-6">
           <div className="flex justify-center">
             <TournamentForm
+              key={editingTournament ? editingTournament.id : "new"}
               players={players}
               onSubmit={handleAddTournament}
               initialTournament={editingTournament || undefined}

@@ -87,8 +87,7 @@ export function TournamentList({
                       variant="ghost"
                       size="icon"
                       onClick={() => onEdit(tournament)}
-                      disabled={tournament.status !== "planning"}
-                      title={tournament.status !== "planning" ? "Can only edit planning tournaments" : "Edit"}
+                      title="Edit Tournament"
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
