@@ -207,6 +207,56 @@ export const useChessData = () => {
             console.error("Auto-migrating player names error:", err);
           });
         }
+
+        // Auto-seed missing National Sports Day participants if not already present in Supabase
+        const cleanName = (str: string) => (str || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+        const existingCleanNames = new Set(rawPlayers.map((r: any) => cleanName(r.name)));
+        const existingShortNames = new Set(rawPlayers.map((r: any) => {
+          const parts = cleanName(r.name).split(" ").filter(Boolean);
+          return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : parts.join(" ");
+        }));
+
+        const missingParticipants = NATIONAL_SPORTS_DAY_PARTICIPANTS.filter((p) => {
+          const cName = cleanName(p.name);
+          const parts = cName.split(" ").filter(Boolean);
+          const shortN = parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : cName;
+          return !existingCleanNames.has(cName) && !existingShortNames.has(shortN);
+        });
+
+        if (missingParticipants.length > 0) {
+          const newPlayerRows = missingParticipants.map((p) => ({
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            name: formatPlayerName(p.name),
+            roll_no: null,
+            branch: p.branch,
+            class: null,
+            year: p.year ?? null,
+            division: null,
+            estimated_elo: null,
+            official_elo: null,
+            fide_rating: null,
+            games_played: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            is_rated: false,
+            program: p.program,
+            enrollment_no: null,
+            mobile_no: null,
+            email: null,
+            created_at: Date.now(),
+          }));
+
+          const { error: seedError } = await supabase.from("players").insert(newPlayerRows);
+          if (!seedError) {
+            console.log(`Auto-seeded ${newPlayerRows.length} missing National Sports Day participant(s) into Supabase.`);
+            const seededPlayers = newPlayerRows.map(rowToPlayer);
+            setPlayers((prev) => [...prev, ...seededPlayers]);
+          } else {
+            console.error("Failed to auto-seed National Sports Day participants:", seedError);
+          }
+        }
       } catch (err) {
         console.error("Failed to load data from Supabase:", err);
       } finally {
@@ -361,3 +411,42 @@ export const useChessData = () => {
     getTournamentPlayers, getTournamentStandings,
   };
 };
+
+const NATIONAL_SPORTS_DAY_PARTICIPANTS = [
+  { name: "Aditya Jagatap", year: "SY", program: "B.Tech", branch: "BTech" },
+  { name: "Adwit Ghuge", year: "SY", program: "B.Tech", branch: "BTech" },
+  { name: "Arman Attar", year: "SY", program: "B.Tech", branch: "BTech" },
+  { name: "Abhishek Biradar", year: "SY", program: "B.Tech", branch: "BTech" },
+  { name: "Chirag Parmar", year: "SY", program: "B.Tech", branch: "BTech" },
+  { name: "Rushikesh Ingle", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Omkar Hirwe", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Pruthviraj Kaemale", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Krishna Nagwanshi", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Pranay Barva", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Gayatri Salave", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Harsharaj Singh", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Chirantan Vibhute", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Yogesh Kankariya", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Sarthak Ardhapure", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Aamir Aland", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Ashish Choudhari", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Sainath Kurve", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Sainath Patil", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Mohammd Tahashaikh", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Kaustubh Rahate", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Vishwajit Salunke", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Shahid Jamadar", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Atharv Gupta", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Mayur Shirsat", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Tanmay Kadam", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Darshan Bamnkar", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Krish Katre", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Hruday Mankar", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Swarup Nalawade", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Hariom Tiwari", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Mohit Jadhav", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Aashish Choudhary", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Aditya Pal", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Omkar Gujjewar", year: "TY", program: "B.Tech", branch: "BTech" },
+  { name: "Kishor Jaiswal", year: "TY", program: "B.Tech", branch: "BTech" }
+];
