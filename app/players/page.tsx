@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Plus, Search, Upload, Eye, Trophy } from "lucide-react";
 import { Player } from "@/lib/types";
-import { formatPlayerName } from "@/lib/utils-chess";
+import { formatPlayerName, getShortPlayerName } from "@/lib/utils-chess";
 import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
 
 const BRANCHES = ["CE", "CSE CySec", "CSE AIML", "IT", "ENTC", "ME", "Civil", "Other"];
@@ -252,7 +252,7 @@ export default function PlayersPage() {
                       className="border-b hover:bg-secondary/30 transition-colors cursor-pointer"
                       onClick={() => openView(p)}
                     >
-                      <td className="py-3 px-2 font-semibold text-primary">{p.name}</td>
+                      <td className="py-3 px-2 font-semibold text-primary">{getShortPlayerName(p.name)}</td>
                       <td className="py-3 px-2 text-muted-foreground">{p.rollNo || "—"}</td>
                       <td className="py-3 px-2">
                         <Badge variant="outline" className="text-xs">{p.branch}</Badge>
@@ -319,6 +319,7 @@ export default function PlayersPage() {
           {viewingPlayer && (() => {
             const stats = playerStats.get(viewingPlayer.id);
             const details = [
+              { label: "Full Name",     value: viewingPlayer.name      || "—" },
               { label: "Roll No",       value: viewingPlayer.rollNo    || "—" },
               { label: "Enrollment No.", value: viewingPlayer.enrollmentNo || "—" },
               { label: "Branch",        value: viewingPlayer.branch    || "—" },

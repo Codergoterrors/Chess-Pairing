@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Player, Standing } from "@/lib/types";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getShortPlayerName } from "@/lib/utils-chess";
 
 interface ExportStandingsProps {
   tournament: { id: string; name: string };
@@ -137,7 +138,7 @@ export function ExportStandings({ tournament, standings, players }: ExportStandi
         // Player name
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-        ctx.fillText(player.name, cols[1].x, textY);
+        ctx.fillText(getShortPlayerName(player.name), cols[1].x, textY);
 
         // Roll No
         ctx.fillStyle = "#9ca3af";
@@ -245,7 +246,7 @@ export function ExportStandings({ tournament, standings, players }: ExportStandi
         if (!player) return;
         if (yPosition > 270) { doc.addPage(); yPosition = 20; }
         const rowData = [
-          (index + 1).toString(), player.name, player.rollNo, player.branch,
+          (index + 1).toString(), getShortPlayerName(player.name), player.rollNo, player.branch,
           standing.score.toFixed(1), `${standing.wins}-${standing.losses}-${standing.draws}`,
           standing.buchholz.toFixed(1),
         ];

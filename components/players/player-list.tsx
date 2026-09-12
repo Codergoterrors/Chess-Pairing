@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit2 } from "lucide-react";
+import { getShortPlayerName } from "@/lib/utils-chess";
 
 interface PlayerListProps {
   players: Player[];
@@ -58,7 +59,7 @@ export function PlayerList({ players, onEdit, onDelete, isLoading = false }: Pla
             <TableBody>
               {players.map((player) => (
                 <TableRow key={player.id}>
-                  <TableCell className="font-medium">{player.name}</TableCell>
+                  <TableCell className="font-medium">{getShortPlayerName(player.name)}</TableCell>
                   <TableCell>{player.rollNo}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{player.branch}</Badge>

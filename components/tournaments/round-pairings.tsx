@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { calculateCurrentRating } from "@/lib/utils-chess";
+import { calculateCurrentRating, getShortPlayerName } from "@/lib/utils-chess";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,8 @@ export function RoundPairings({
     if (!player) return null;
 
     return {
-      name: player.name,
+      name: getShortPlayerName(player.name),
+      fullName: player.name,
       rollNo: player.rollNo,
       elo: calculateCurrentRating(player),
       score: standing?.score || 0,

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Player } from "@/lib/types";
-import { formatPlayerName } from "@/lib/utils-chess";
+import { formatPlayerName, getShortPlayerName } from "@/lib/utils-chess";
 import { UserPlus, Search, Plus, ChevronDown, ChevronUp, X } from "lucide-react";
 
 const BRANCHES = [
@@ -187,7 +187,7 @@ export function SpotEntryDialog({
                       onCheckedChange={() => toggle(p.id)}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{p.name}</p>
+                      <p className="text-sm font-medium">{getShortPlayerName(p.name)}</p>
                       <p className="text-xs text-muted-foreground">{p.rollNo} · {p.branch}</p>
                     </div>
                     {selected.has(p.id) && (

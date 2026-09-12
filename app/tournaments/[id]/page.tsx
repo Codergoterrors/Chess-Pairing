@@ -19,7 +19,7 @@ import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEn
 import { generateSwissPairings, generateSeededKnockoutPairings } from "@/lib/pairing-algorithm";
 import { Player, Standing, TimeControl, TimeControlConfig, Pairing } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { calculateCurrentRating, havePlayedBefore, generateId, formatPlayerName } from "@/lib/utils-chess";
+import { calculateCurrentRating, havePlayedBefore, generateId, formatPlayerName, getShortPlayerName } from "@/lib/utils-chess";
 import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import Link from "next/link";
 
@@ -518,8 +518,8 @@ export default function TournamentDetailPage() {
     );
   }
 
-  const p1Name = manualPlayer1 ? playersMap.get(manualPlayer1)?.name : "";
-  const p2Name = manualPlayer2 ? playersMap.get(manualPlayer2)?.name : "";
+  const p1Name = manualPlayer1 ? getShortPlayerName(playersMap.get(manualPlayer1)?.name) : "";
+  const p2Name = manualPlayer2 ? getShortPlayerName(playersMap.get(manualPlayer2)?.name) : "";
 
   return (
     <div className="container mx-auto py-10">
@@ -657,7 +657,7 @@ export default function TournamentDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {tournamentPlayers.map((player) => (
                     <div key={player.id} className="p-3 border rounded-lg">
-                      <p className="font-semibold">{player.name}</p>
+                      <p className="font-semibold">{getShortPlayerName(player.name)}</p>
                       <p className="text-sm text-muted-foreground">{player.rollNo} • {player.branch}</p>
                     </div>
                   ))}
@@ -700,7 +700,7 @@ export default function TournamentDetailPage() {
                 <SelectContent>
                   {tournamentPlayers.map(p => (
                     <SelectItem key={p.id} value={p.id} disabled={p.id === manualPlayer2}>
-                      {p.name} ({p.rollNo})
+                      {getShortPlayerName(p.name)} ({p.rollNo})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -714,7 +714,7 @@ export default function TournamentDetailPage() {
                 <SelectContent>
                   {tournamentPlayers.map(p => (
                     <SelectItem key={p.id} value={p.id} disabled={p.id === manualPlayer1}>
-                      {p.name} ({p.rollNo})
+                      {getShortPlayerName(p.name)} ({p.rollNo})
                     </SelectItem>
                   ))}
                 </SelectContent>

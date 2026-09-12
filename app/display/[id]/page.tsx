@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPlayerName } from "@/lib/utils-chess";
+import { formatPlayerName, getShortPlayerName } from "@/lib/utils-chess";
 
 // ── Refresh interval ──────────────────────────────────────────
 const REFRESH = 10; // fallback poll interval (real-time handles instant updates)
@@ -27,7 +27,8 @@ function mapT(r: any) {
 }
 function mapP(r: any) {
   return {
-    id: r.id as string, name: formatPlayerName(r.name as string),
+    id: r.id as string, name: getShortPlayerName(r.name as string),
+    fullName: formatPlayerName(r.name as string),
     rollNo: (r.roll_no ?? "") as string,
     branch: (r.branch ?? "") as string,
     officialElo: r.official_elo as number | null,

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal } from "lucide-react";
+import { getShortPlayerName } from "@/lib/utils-chess";
 
 interface StandingsTableProps {
   standings: Standing[];
@@ -70,7 +71,7 @@ export function StandingsTable({ standings, players, title = "Tournament Standin
                         <span>{rank}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-semibold">{player.name}</TableCell>
+                    <TableCell className="font-semibold">{getShortPlayerName(player.name)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{player.rollNo}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{player.branch}</Badge>

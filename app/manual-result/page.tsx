@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { calculateCurrentRating } from "@/lib/utils-chess";
+import { calculateCurrentRating, getShortPlayerName } from "@/lib/utils-chess";
 import { Standing, Pairing } from "@/lib/types";
 import { ChevronLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -105,7 +105,7 @@ export default function ManualResultPage() {
 
       if (existingBye) {
         // Already has a bye — nothing to do
-        toast({ title: "Already exists", description: `${p1?.name} already has a BYE in Round ${selectedRound}.` });
+        toast({ title: "Already exists", description: `${getShortPlayerName(p1?.name)} already has a BYE in Round ${selectedRound}.` });
         return;
       }
 
@@ -117,62 +117,86 @@ export default function ManualResultPage() {
         isBye: true,
         createdAt: Date.now(),
       };
-      addPairing(newPairing);
-      updatedPairings = [...tournamentPairings, newPairing];
 
+      await addPairing(newPairing);
+
+      // Recalculate and push standings with BYE point included
+      const allPairingsAfter = [...tournamentPairings.filter(p => !(p.roundNumber === selectedRound && p.player1Id === player1Id && p.isBye)), newPairing];
+      const newStandingsMap = recalculateStandings(allPairingsAfter, tournament.players, playersMap, tournament.id);
+      for (const standing of Array.from(newStandingsMap.values())) {
+        await updateStanding(standing);
+      }
+
+      setSaved(true);
+      toast({ title: "BYE Recorded!", description: `+1 point awarded to ${getShortPlayerName(p1?.name)} in Round ${selectedRound}.` });
     } else {
-      if (!player2Id || player1Id === player2Id) return;
+      if (!player1Id || !player2Id || !result) {
+        toast({ title: "Missing fields", description: "Select both players and a result.", variant: "destructive" });
+        return;
+      }
 
-      const existingPairing = tournamentPairings.find(p =>
-        p.roundNumber === selectedRound && !p.isBye &&
+      // Check if this pairing already exists in this round
+      const existing = tournamentPairings.find(p =>
+        p.roundNumber === selectedRound &&
+        !p.isBye &&
         ((p.player1Id === player1Id && p.player2Id === player2Id) ||
          (p.player1Id === player2Id && p.player2Id === player1Id))
       );
 
-      if (existingPairing) {
-        const updated = { ...existingPairing, result };
-        updatePairing(updated);
-        updatedPairings = tournamentPairings.map(p => p.id === existingPairing.id ? updated : p);
+      let pairingId: string;
+      if (existing) {
+        // Update existing pairing result
+        pairingId = existing.id;
+        await updatePairing({ ...existing, result });
       } else {
+        // Create new manual pairing with result
+        pairingId = crypto.randomUUID();
         const newPairing: Pairing = {
-          id: crypto.randomUUID(),
+          id: pairingId,
           tournamentId: tournament.id,
           roundNumber: selectedRound,
-          player1Id, player2Id, result,
+          player1Id,
+          player2Id,
+          result,
           isBye: false,
           createdAt: Date.now(),
         };
-        addPairing(newPairing);
-        updatedPairings = [...tournamentPairings, newPairing];
+        await addPairing(newPairing);
       }
+
+      // Recalculate and push standings
+      const otherPairings = tournamentPairings.filter(p => p.id !== (existing?.id ?? ""));
+      const updatedPairing: Pairing = {
+        id: pairingId,
+        tournamentId: tournament.id,
+        roundNumber: selectedRound,
+        player1Id,
+        player2Id,
+        result,
+        isBye: false,
+        createdAt: existing?.createdAt ?? Date.now(),
+      };
+      const allPairingsAfter = [...otherPairings, updatedPairing];
+      const newStandingsMap = recalculateStandings(allPairingsAfter, tournament.players, playersMap, tournament.id);
+      for (const standing of Array.from(newStandingsMap.values())) {
+        await updateStanding(standing);
+      }
+
+      setSaved(true);
+      const resText = result === "win1" ? `${getShortPlayerName(p1?.name)} won` : result === "win2" ? `${getShortPlayerName(p2?.name)} won` : "Draw";
+      toast({ title: "Result Recorded!", description: `Round ${selectedRound}: ${resText}` });
     }
-
-    const fresh = recalculateStandings(updatedPairings, tournament.players, playersMap, tournament.id);
-    fresh.forEach((standing) => {
-      if (standingsMap.has(standing.playerId)) updateStanding(standing);
-      else addStanding(standing);
-    });
-
-    setSaved(true);
-    toast({ title: "Saved!", description: "Standings updated." });
   };
 
   const handleReset = () => {
-    setStep(1);
-    setEntryMode("game");
-    setSelectedTournamentId("");
-    setSelectedRound(1);
     setPlayer1Id("");
     setPlayer2Id("");
-    setResult("win1");
+    setResult(undefined);
+    setStep(2);
     setSaved(false);
   };
 
-  const resultLabel = entryMode === "bye"
-    ? `${p1?.name ?? "Player"} — BYE (+1 point)`
-    : result === "win1" ? `${p1?.name ?? "Player 1"} Wins`
-    : result === "win2" ? `${p2?.name ?? "Player 2"} Wins`
-    : "Draw";
+  const resultLabel = result === "win1" ? `${p1Short} won (1 - 0)` : result === "win2" ? `${p2Short} won (0 - 1)` : result === "draw" ? "Draw (½ - ½)" : "";
 
   return (
     <div className="container mx-auto py-10 max-w-xl">
@@ -290,7 +314,7 @@ export default function ManualResultPage() {
                   <SelectContent>
                     {tournamentPlayers.map(p => (
                       <SelectItem key={p.id} value={p.id} disabled={p.id === player2Id}>
-                        {p.name} — {p.rollNo} {p.estimatedElo || p.officialElo ? `(${p.estimatedElo || p.officialElo})` : "(NR)"}
+                        {getShortPlayerName(p.name)} — {p.rollNo} {p.estimatedElo || p.officialElo ? `(${p.estimatedElo || p.officialElo})` : "(NR)"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -305,7 +329,7 @@ export default function ManualResultPage() {
                     <SelectContent>
                       {tournamentPlayers.map(p => (
                         <SelectItem key={p.id} value={p.id} disabled={p.id === player1Id}>
-                          {p.name} — {p.rollNo} {p.estimatedElo || p.officialElo ? `(${p.estimatedElo || p.officialElo})` : "(NR)"}
+                          {getShortPlayerName(p.name)} — {p.rollNo} {p.estimatedElo || p.officialElo ? `(${p.estimatedElo || p.officialElo})` : "(NR)"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -329,7 +353,7 @@ export default function ManualResultPage() {
                 </CardTitle>
               </div>
               {entryMode === "game" && p1 && p2 && (
-                <CardDescription>{p1.name} vs {p2.name} — {tournament?.name}, Round {selectedRound}</CardDescription>
+                <CardDescription>{p1Short} vs {p2Short} — {tournament?.name}, Round {selectedRound}</CardDescription>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
@@ -338,7 +362,7 @@ export default function ManualResultPage() {
                 // BYE confirmation
                 <div className="bg-yellow-500/10 border-2 border-yellow-500/40 rounded-lg p-4 text-center space-y-2">
                   <div className="text-3xl">🏖️</div>
-                  <p className="font-bold text-lg">{p1?.name ?? "—"}</p>
+                  <p className="font-bold text-lg">{p1Short || "—"}</p>
                   <p className="text-sm text-muted-foreground">{p1?.rollNo} • {p1?.branch}</p>
                   <Badge className="bg-yellow-500 text-black font-bold px-4 py-1">BYE — +1 point</Badge>
                   <p className="text-xs text-muted-foreground mt-1">Round {selectedRound} · {tournament?.name}</p>
@@ -348,9 +372,9 @@ export default function ManualResultPage() {
                 <>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { value: "win1", label: p1?.name ? `${p1.name} Wins` : "Player 1 Wins" },
+                      { value: "win1", label: p1Short ? `${p1Short} Wins` : "Player 1 Wins" },
                       { value: "draw", label: "Draw" },
-                      { value: "win2", label: p2?.name ? `${p2.name} Wins` : "Player 2 Wins" },
+                      { value: "win2", label: p2Short ? `${p2Short} Wins` : "Player 2 Wins" },
                     ].map(opt => (
                       <button key={opt.value} onClick={() => setResult(opt.value as any)}
                         className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-center ${result === opt.value ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
@@ -360,9 +384,9 @@ export default function ManualResultPage() {
                   </div>
                   {p1 && p2 && (
                     <div className="bg-secondary/40 rounded-lg p-3 text-sm text-center">
-                      <span className="font-semibold">{p1.name}</span>
+                      <span className="font-semibold">{p1Short}</span>
                       <span className="mx-2 text-muted-foreground">vs</span>
-                      <span className="font-semibold">{p2.name}</span>
+                      <span className="font-semibold">{p2Short}</span>
                       <div className="mt-1 text-primary font-semibold">{resultLabel}</div>
                     </div>
                   )}

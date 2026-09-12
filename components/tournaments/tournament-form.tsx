@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Player, Tournament, calculateRounds } from "@/lib/types";
-import { generateId } from "@/lib/utils-chess";
+import { generateId, getShortPlayerName } from "@/lib/utils-chess";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -200,7 +200,7 @@ export function TournamentForm({
                       htmlFor={player.id} 
                       className="flex-1 cursor-pointer text-sm font-normal"
                     >
-                      {player.name} ({player.rollNo}) - {player.branch}
+                      {getShortPlayerName(player.name)} ({player.rollNo}) - {player.branch}
                     </Label>
                   </div>
                 ))}

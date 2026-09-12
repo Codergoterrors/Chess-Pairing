@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Player } from "@/lib/types";
+import { getShortPlayerName } from "@/lib/utils-chess";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -93,7 +94,7 @@ export function AddPlayerDialog({
                   htmlFor={`add-${player.id}`}
                   className="flex-1 cursor-pointer text-sm font-normal"
                 >
-                  {player.name} ({player.rollNo}) - {player.branch}
+                  {getShortPlayerName(player.name)} ({player.rollNo}) - {player.branch}
                 </Label>
               </div>
             ))}

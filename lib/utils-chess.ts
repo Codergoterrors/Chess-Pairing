@@ -27,6 +27,25 @@ export const formatPlayerName = (name: string): string => {
     .join(" ");
 };
 
+/**
+ * Returns a player's short display name (First Name + Last Name/Surname),
+ * omitting middle names for clean presentation in tables, pairings, podiums, and display boards.
+ * The full name with middle name remains stored in the database and shown in detailed player views.
+ *
+ * Examples:
+ *   "Manthan Gopal Kediya" -> "Manthan Kediya"
+ *   "Abhay Mahadev Suryawanshi" -> "Abhay Suryawanshi"
+ *   "Vikalkumar Vithal Shinde" -> "Vikalkumar Shinde"
+ *   "Omkar Bhagat" -> "Omkar Bhagat"
+ *   "Omkar" -> "Omkar"
+ */
+export const getShortPlayerName = (name?: string | null): string => {
+  if (!name || typeof name !== "string") return "";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return parts.join(" ");
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+};
+
 // Calculate Elo rating change
 export const calculateEloChange = (playerElo: number, opponentElo: number, result: "win" | "draw" | "loss", k = 32): number => {
   const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
