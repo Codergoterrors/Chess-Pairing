@@ -170,8 +170,10 @@ export function TournamentForm({
           {/* Player Selection */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Select Players ({selectedPlayers.size}/{players.length})</h3>
-              {players.length > 0 && (
+              <h3 className="text-sm font-semibold">
+                {initialTournament ? `Tournament Players (${selectedPlayers.size})` : `Select Players (${selectedPlayers.size}/${players.length})`}
+              </h3>
+              {!initialTournament && players.length > 0 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -188,23 +190,28 @@ export function TournamentForm({
               <p className="text-sm text-muted-foreground">No players available. Add players first.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto border rounded-lg p-3">
-                {players.map((player) => (
+                {(initialTournament ? players.filter(p => selectedPlayers.has(p.id)) : players).map((player) => (
                   <div key={player.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={player.id}
                       checked={selectedPlayers.has(player.id)}
                       onCheckedChange={() => handlePlayerToggle(player.id)}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !!initialTournament}
                     />
                     <Label 
                       htmlFor={player.id} 
-                      className="flex-1 cursor-pointer text-sm font-normal"
+                      className={`flex-1 text-sm font-normal ${initialTournament ? "cursor-default" : "cursor-pointer"}`}
                     >
                       {getShortPlayerName(player.name)} ({player.rollNo}) - {player.branch}
                     </Label>
                   </div>
                 ))}
               </div>
+            )}
+            {initialTournament && (
+              <p className="text-xs text-muted-foreground italic">
+                Note: Player roster cannot be modified from the edit form. To add new players to an active tournament, open the tournament detail page and use the "Add Player" button.
+              </p>
             )}
           </div>
 
