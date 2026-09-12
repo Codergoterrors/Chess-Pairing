@@ -88,6 +88,8 @@ export default function ManualResultPage() {
 
   const p1 = playersMap.get(player1Id);
   const p2 = playersMap.get(player2Id);
+  const p1Short = getShortPlayerName(p1?.name);
+  const p2Short = getShortPlayerName(p2?.name);
   const activeTournaments = tournaments.filter(t => t.status === "in-progress" || t.status === "completed");
 
   const canProceedToStep3 = entryMode === "bye" ? !!player1Id : (!!player1Id && !!player2Id);
@@ -214,9 +216,9 @@ export default function ManualResultPage() {
             <p className="text-xl font-bold">Saved!</p>
             <p className="text-muted-foreground text-center">
               {entryMode === "bye" ? (
-                <><span className="font-semibold">{p1?.name}</span> received a <span className="text-yellow-500 font-semibold">BYE</span> in Round {selectedRound}</>
+                <><span className="font-semibold">{p1Short}</span> received a <span className="text-yellow-500 font-semibold">BYE</span> in Round {selectedRound}</>
               ) : (
-                <><span className="font-semibold">{p1?.name}</span> vs <span className="font-semibold">{p2?.name}</span><br /><span className="text-primary font-semibold">{resultLabel}</span></>
+                <><span className="font-semibold">{p1Short}</span> vs <span className="font-semibold">{p2Short}</span><br /><span className="text-primary font-semibold">{resultLabel}</span></>
               )}
               <br /><span className="text-sm">{tournament?.name}, Round {selectedRound}</span>
             </p>
