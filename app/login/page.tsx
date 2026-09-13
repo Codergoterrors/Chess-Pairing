@@ -49,14 +49,15 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
-        {/* Logo */}
+        {/* Logo & Branding */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
-            <Trophy className="h-8 w-8 text-primary" />
+          <div className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-amber-500/40 shadow-md bg-black/60 p-1">
+            <img src="/club-logo.jpg" alt="Checkmate | Chess Club" className="object-cover h-full w-full rounded-xl" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Chess Pairing</h1>
-            <p className="text-sm text-muted-foreground mt-1">Sign in to manage your tournaments</p>
+            <h1 className="text-2xl font-extrabold tracking-tight">Checkmate | Chess Club</h1>
+            <p className="text-xs font-semibold text-amber-500 tracking-wider uppercase mt-0.5">GHRISTU · PUNE</p>
+            <p className="text-xs text-muted-foreground mt-2">Sign in to manage your tournaments</p>
           </div>
         </div>
 

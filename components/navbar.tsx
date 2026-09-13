@@ -22,9 +22,14 @@ export function Navbar() {
   return (
     <nav className="border-b bg-background sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity">
-          <Trophy className="h-6 w-6 text-primary" />
-          <span className="text-foreground font-extrabold tracking-tight">Checkmate | Chess Club</span>
+        <Link href="/" className="flex items-center gap-3 font-bold text-lg hover:opacity-90 transition-opacity">
+          <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-amber-500/30 shadow-sm bg-black/40 flex items-center justify-center">
+            <img src="/club-logo.jpg" alt="Checkmate | Chess Club" className="object-cover h-full w-full" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-foreground font-extrabold tracking-tight text-base leading-tight">Checkmate | Chess Club</span>
+            <span className="text-[10px] text-amber-500 font-medium tracking-wide">GHRISTU · PUNE</span>
+          </div>
         </Link>
 
         <div className="flex items-center gap-3">
