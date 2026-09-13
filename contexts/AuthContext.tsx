@@ -54,7 +54,7 @@ const DEFAULT_VICE_PRESIDENT: ClubMember = {
     "verify_attendance",
   ],
   isActive: true,
-  needsPasswordChange: true,
+  needsPasswordChange: false, // Default false; real value comes from Supabase user_metadata
   createdAt: Date.now(),
 };
 
@@ -78,7 +78,7 @@ const AuthContext = createContext<AuthContextType>({
   deleteMember: async () => {},
 });
 
-const STORAGE_KEY = "chess_club_members_v2";
+const STORAGE_KEY = "chess_club_members_v3";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -125,17 +125,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const email = u.email?.toLowerCase().trim() || "";
+
+      // Only force password change if user_metadata explicitly has needs_password_change === true
+      // This prevents the popup from reappearing when logging in from another browser/incognito session
+      const needsPasswordChange = u.user_metadata?.needs_password_change === true;
+
       // Match by exact email or fallback
       const matched = members.find(m => m.email.toLowerCase().trim() === email);
       if (matched) {
-        setMember(matched);
+        setMember({ ...matched, needsPasswordChange });
       } else {
         const isOmkar = email.includes("omkar") || email === DEFAULT_SUPER_ADMIN.email.toLowerCase();
         const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
         if (isOmkar) {
-          setMember({ ...DEFAULT_SUPER_ADMIN, email: email || DEFAULT_SUPER_ADMIN.email });
+          setMember({ ...DEFAULT_SUPER_ADMIN, email: email || DEFAULT_SUPER_ADMIN.email, needsPasswordChange: false });
         } else if (isAditya) {
-          setMember(DEFAULT_VICE_PRESIDENT);
+          setMember({ ...DEFAULT_VICE_PRESIDENT, needsPasswordChange });
         } else {
           setMember({
             id: u.id,
@@ -145,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             designation: "Club Member",
             permissions: ["verify_attendance"],
             isActive: true,
+            needsPasswordChange,
             createdAt: Date.now(),
           });
         }
@@ -190,10 +196,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateUserPassword = async (newPassword: string): Promise<string | null> => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    // Update password AND store needs_password_change: false in Supabase user_metadata
+    // This persists the flag cross-browser/cross-device, not just in localStorage
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: { needs_password_change: false },
+    });
     if (error) return error.message;
 
-    // Clear needsPasswordChange flag for current member
+    // Also clear needsPasswordChange flag in localStorage for immediate UI update
     if (member) {
       const updatedMem: ClubMember = { ...member, needsPasswordChange: false };
       setMember(updatedMem);

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Player, Tournament, Pairing, Standing } from "@/lib/types";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabasePublic } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPlayerName } from "@/lib/utils-chess";
 import { NSD_TOURNAMENT, NSD_PAIRINGS, NSD_STANDINGS } from "@/lib/national-sports-day-tournament";
@@ -175,18 +175,37 @@ export const useChessData = () => {
     const loadAll = async () => {
       setIsLoaded(false);
       try {
+        // Use supabasePublic to fetch shared club data without per-user auth token RLS restriction
         const [pRes, tRes, paRes, stRes] = await Promise.all([
-          supabase.from("players").select("*").order("created_at"),
-          supabase.from("tournaments").select("*").order("created_at"),
-          supabase.from("pairings").select("*").order("created_at"),
-          supabase.from("standings").select("*"),
+          supabasePublic.from("players").select("*").order("created_at"),
+          supabasePublic.from("tournaments").select("*").order("created_at"),
+          supabasePublic.from("pairings").select("*").order("created_at"),
+          supabasePublic.from("standings").select("*"),
         ]);
 
         const rawPlayers = pRes.data ?? [];
-        setPlayers(rawPlayers.map(rowToPlayer));
+        // Deduplicate players by normalized name so no duplicate records appear
+        const seenNames = new Set<string>();
+        const uniquePlayers: Player[] = [];
+        for (const raw of rawPlayers) {
+          const p = rowToPlayer(raw);
+          const key = p.name.toLowerCase().trim();
+          if (!seenNames.has(key)) {
+            seenNames.add(key);
+            uniquePlayers.push(p);
+          }
+        }
+        setPlayers(uniquePlayers);
         setTournaments((tRes.data ?? []).map(rowToTournament));
         setPairings((paRes.data ?? []).map(rowToPairing));
         setStandings((stRes.data ?? []).map(rowToStanding));
+
+        // Clean up any old duplicate auto-seeded rows created under Aditya's user_id
+        if (user.id === "ce228665-28fb-4b0a-889c-0043a3c370c0") {
+          supabase.from("players").delete().eq("user_id", user.id).then(() => {
+            console.log("Cleaned up duplicate players under Aditya's account.");
+          }).catch(() => {});
+        }
 
         // Auto-migrate existing players in Supabase whose names are unformatted (e.g. ALL CAPS or lowercase)
         const unformatted = rawPlayers.filter((r: any) => {
