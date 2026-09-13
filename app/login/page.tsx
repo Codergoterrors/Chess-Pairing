@@ -6,7 +6,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trophy, Loader2 } from "lucide-react";
+import { Loader2, Instagram } from "lucide-react";
+import Image from "next/image";
+import clubLogo from "@/public/club-logo.jpg";
 
 export default function LoginPage() {
   const { user, isLoading, signIn } = useAuth();
@@ -17,7 +19,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (!isLoading && user) {
       router.replace("/tournaments");
@@ -28,7 +29,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setIsSigningIn(true);
-
     const errorMsg = await signIn(email, password);
     if (errorMsg) {
       setError("Invalid email or password. Please try again.");
@@ -51,19 +51,17 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo & Branding */}
         <div className="flex flex-col items-center gap-3">
-          <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-2 border-amber-500/40 shadow-md bg-black/80 p-1 flex items-center justify-center">
-            <img 
-              src="/club-logo.png" 
-              alt="Checkmate | Chess Club" 
-              className="object-cover h-full w-full rounded-xl" 
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "/club-logo.jpg";
-              }}
+          <div className="relative h-28 w-28 overflow-hidden rounded-2xl border-2 border-amber-500/40 shadow-lg">
+            <Image
+              src={clubLogo}
+              alt="Checkmate | Chess Club"
+              fill
+              className="object-cover"
+              priority
             />
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-extrabold tracking-tight">Checkmate | Chess Club</h1>
-            <p className="text-xs font-semibold text-amber-500 tracking-wider uppercase mt-0.5">GHRISTU · PUNE</p>
             <p className="text-xs text-muted-foreground mt-2">Sign in to manage your tournaments</p>
           </div>
         </div>
@@ -112,9 +110,20 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Developed by Osm Omkar
-        </p>
+        {/* Footer */}
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span>Developed by Osm Omkar</span>
+          <span>·</span>
+          <a
+            href="https://www.instagram.com/checkmate_chess_club_ghristu/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-semibold text-pink-500 hover:text-pink-400 transition-colors"
+          >
+            <Instagram className="h-3.5 w-3.5" />
+            Instagram
+          </a>
+        </div>
       </div>
     </div>
   );
