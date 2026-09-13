@@ -114,3 +114,31 @@ export function calculateRounds(playerCount: number, format: string): number {
   }
   return 1;
 }
+
+// Club Member Roles & Permissions
+export type ClubRole = 
+  | "president_chief_arbiter"
+  | "vice_president"
+  | "chief_arbiter"
+  | "arbiter"
+  | "organizer"
+  | "member";
+
+export type ClubPermission =
+  | "manage_members"
+  | "manage_tournaments"
+  | "manage_players"
+  | "manage_pairings"
+  | "enter_results"
+  | "verify_attendance";
+
+export interface ClubMember {
+  id: string; // Auth User ID / Email
+  email: string;
+  name: string;
+  role: ClubRole;
+  designation: string;
+  permissions: ClubPermission[];
+  isActive: boolean;
+  createdAt: number;
+}
