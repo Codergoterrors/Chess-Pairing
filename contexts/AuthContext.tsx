@@ -125,18 +125,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const email = u.email?.toLowerCase().trim() || "";
+      const isOmkar = email.includes("omkar") || email === DEFAULT_SUPER_ADMIN.email.toLowerCase();
+      const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
 
-      // Only force password change if user_metadata explicitly has needs_password_change === true
-      // This prevents the popup from reappearing when logging in from another browser/incognito session
-      const needsPasswordChange = u.user_metadata?.needs_password_change === true;
+      // Read needs_password_change from Supabase user_metadata
+      // If explicitly false -> password already changed (no popup)
+      // If true or undefined for Aditya -> first login / after reset (show popup until changed)
+      const metaFlag = u.user_metadata?.needs_password_change;
+      const needsPasswordChange = !isOmkar && (metaFlag === true || (isAditya && metaFlag !== false));
 
       // Match by exact email or fallback
       const matched = members.find(m => m.email.toLowerCase().trim() === email);
       if (matched) {
         setMember({ ...matched, needsPasswordChange });
       } else {
-        const isOmkar = email.includes("omkar") || email === DEFAULT_SUPER_ADMIN.email.toLowerCase();
-        const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
         if (isOmkar) {
           setMember({ ...DEFAULT_SUPER_ADMIN, email: email || DEFAULT_SUPER_ADMIN.email, needsPasswordChange: false });
         } else if (isAditya) {
