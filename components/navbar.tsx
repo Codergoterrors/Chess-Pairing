@@ -10,7 +10,7 @@ import clubLogo from "@/public/club-logo.jpg";
 
 export function Navbar() {
   const router = useRouter();
-  const { user, member, isSuperAdmin, signOut } = useAuth();
+  const { user, member, isSuperAdmin, canManageMembers, signOut } = useAuth();
 
   const handleLogout = async () => {
     await signOut();
