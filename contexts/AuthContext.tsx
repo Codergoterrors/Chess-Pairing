@@ -11,9 +11,12 @@ interface AuthContextType {
   member: ClubMember | null;
   isLoading: boolean;
   isSuperAdmin: boolean;
+  isPresident: boolean;
+  canManageMembers: boolean;
   hasPermission: (permission: ClubPermission) => boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<string | null>;
   members: ClubMember[];
   addMember: (member: Omit<ClubMember, "createdAt">) => Promise<void>;
   updateMember: (member: ClubMember) => Promise<void>;
@@ -22,7 +25,7 @@ interface AuthContextType {
 
 const DEFAULT_SUPER_ADMIN: ClubMember = {
   id: "omkar-president-id",
-  email: "omkar@chess.com",
+  email: "omkar.bhagatt@gmail.com",
   name: "Omkar Bhagat",
   role: "president_chief_arbiter",
   designation: "President & Chief Arbiter",
@@ -38,22 +41,44 @@ const DEFAULT_SUPER_ADMIN: ClubMember = {
   createdAt: Date.now(),
 };
 
+const DEFAULT_VICE_PRESIDENT: ClubMember = {
+  id: "ce228665-28fb-4b0a-889c-0043a3c370c0",
+  email: "adityashinde9551@gmail.com",
+  name: "Aditya Shinde",
+  role: "vice_president",
+  designation: "Vice President & Senior Arbiter",
+  permissions: [
+    "manage_players",
+    "manage_pairings",
+    "enter_results",
+    "verify_attendance",
+  ],
+  isActive: true,
+  needsPasswordChange: true,
+  createdAt: Date.now(),
+};
+
+const INITIAL_MEMBERS = [DEFAULT_SUPER_ADMIN, DEFAULT_VICE_PRESIDENT];
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   member: null,
   isLoading: true,
   isSuperAdmin: false,
+  isPresident: false,
+  canManageMembers: false,
   hasPermission: () => false,
   signIn: async () => null,
   signOut: async () => {},
+  updateUserPassword: async () => null,
   members: [],
   addMember: async () => {},
   updateMember: async () => {},
   deleteMember: async () => {},
 });
 
-const STORAGE_KEY = "chess_club_members_v1";
+const STORAGE_KEY = "chess_club_members_v2";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -62,19 +87,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load members list from localStorage or initialize with default Omkar Bhagat
+  // Load members list from localStorage or initialize with defaults
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setMembers(JSON.parse(stored));
+        const parsed: ClubMember[] = JSON.parse(stored);
+        // Ensure Omkar and Aditya exist
+        const hasAditya = parsed.some(m => m.email.toLowerCase() === DEFAULT_VICE_PRESIDENT.email.toLowerCase());
+        const hasOmkar = parsed.some(m => m.email.toLowerCase() === DEFAULT_SUPER_ADMIN.email.toLowerCase() || m.name === "Omkar Bhagat");
+        let list = parsed;
+        if (!hasAditya) list = [...list, DEFAULT_VICE_PRESIDENT];
+        if (!hasOmkar) list = [DEFAULT_SUPER_ADMIN, ...list];
+        setMembers(list);
       } else {
-        const initial = [DEFAULT_SUPER_ADMIN];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-        setMembers(initial);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MEMBERS));
+        setMembers(INITIAL_MEMBERS);
       }
     } catch {
-      setMembers([DEFAULT_SUPER_ADMIN]);
+      setMembers(INITIAL_MEMBERS);
     }
   }, []);
 
@@ -94,15 +125,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const email = u.email?.toLowerCase().trim() || "";
-      // Check if user email matches any registered member
+      // Match by exact email or fallback
       const matched = members.find(m => m.email.toLowerCase().trim() === email);
       if (matched) {
         setMember(matched);
       } else {
-        // Fallback: Default to Omkar Bhagat or create standard member
-        const isOmkar = email.includes("omkar") || email.includes("admin") || !email;
+        const isOmkar = email.includes("omkar") || email === DEFAULT_SUPER_ADMIN.email.toLowerCase();
+        const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
         if (isOmkar) {
           setMember({ ...DEFAULT_SUPER_ADMIN, email: email || DEFAULT_SUPER_ADMIN.email });
+        } else if (isAditya) {
+          setMember(DEFAULT_VICE_PRESIDENT);
         } else {
           setMember({
             id: u.id,
@@ -137,10 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [members]);
 
-  const isSuperAdmin = member?.role === "president_chief_arbiter" || member?.email?.includes("omkar") || true;
+  const isPresident = member?.role === "president_chief_arbiter" || member?.email?.toLowerCase().includes("omkar") || false;
+  const isSuperAdmin = isPresident;
+  const canManageMembers = isPresident || member?.role === "vice_president";
 
   const hasPermission = (permission: ClubPermission): boolean => {
-    if (isSuperAdmin) return true;
+    if (isPresident) return true;
     if (!member || !member.isActive) return false;
     return member.permissions.includes(permission);
   };
@@ -152,6 +187,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const updateUserPassword = async (newPassword: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return error.message;
+
+    // Clear needsPasswordChange flag for current member
+    if (member) {
+      const updatedMem: ClubMember = { ...member, needsPasswordChange: false };
+      setMember(updatedMem);
+      const updatedList = members.map(m => m.id === member.id || m.email.toLowerCase() === member.email.toLowerCase() ? updatedMem : m);
+      saveMembers(updatedList);
+    }
+    return null;
   };
 
   const addMember = async (newMem: Omit<ClubMember, "createdAt">) => {
@@ -172,8 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, member, isLoading, isSuperAdmin, hasPermission,
-      signIn, signOut, members, addMember, updateMember, deleteMember
+      user, session, member, isLoading, isSuperAdmin, isPresident, canManageMembers, hasPermission,
+      signIn, signOut, updateUserPassword, members, addMember, updateMember, deleteMember
     }}>
       {children}
     </AuthContext.Provider>
@@ -181,4 +230,5 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
 

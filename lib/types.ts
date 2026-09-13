@@ -140,5 +140,6 @@ export interface ClubMember {
   designation: string;
   permissions: ClubPermission[];
   isActive: boolean;
+  needsPasswordChange?: boolean;
   createdAt: number;
 }

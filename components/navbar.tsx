@@ -49,7 +49,7 @@ export function Navbar() {
             <Button variant="ghost" size="sm">Manual Result</Button>
           </Link>
 
-          {isSuperAdmin && (
+          {canManageMembers && (
             <Link href="/portal">
               <Button variant="outline" size="sm" className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10">
                 <ShieldCheck className="h-4 w-4" />

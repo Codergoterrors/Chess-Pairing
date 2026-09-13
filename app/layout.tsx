@@ -5,11 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NavbarWrapper } from "@/components/NavbarWrapper";
 
+import { ForceChangePasswordModal } from "@/components/ForceChangePasswordModal";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Chess Pairing",
-  description: "Chess tournament pairing and management system",
+  title: "Checkmate | Chess Club",
+  description: "Official tournament pairing, player roster management, and live standings system",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,11 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <AuthProvider>
           <NavbarWrapper />
+          <ForceChangePasswordModal />
           <main>{children}</main>
           <footer className="border-t py-4 mt-8">
             <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
               Developed by Osm Omkar{" "}
-              <a href="https://www.instagram.com/osmomkar_" target="_blank" rel="noreferrer"
+              <a href="https://www.instagram.com/checkmate_chess_club_ghristu/" target="_blank" rel="noreferrer"
                 className="text-pink-500 hover:underline ml-1">Instagram</a>
             </div>
           </footer>

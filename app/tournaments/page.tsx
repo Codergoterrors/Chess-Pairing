@@ -10,12 +10,23 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function TournamentsPage() {
   const { players, tournaments, isLoaded, addTournament, updateTournament, deleteTournament } = useChessData();
+  const { hasPermission } = useAuth();
   const { toast } = useToast();
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [activeTab, setActiveTab] = useState<string>("list");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const canManageTournaments = hasPermission("manage_tournaments");
+
   const handleAddTournament = async (tournament: Tournament) => {
+    if (!canManageTournaments) {
+      toast({
+        title: "Access Denied",
+        description: "Only the President & Chief Arbiter can create or edit tournaments.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (editingTournament) {
@@ -45,6 +56,14 @@ export default function TournamentsPage() {
   };
 
   const handleDeleteTournament = (id: string) => {
+    if (!canManageTournaments) {
+      toast({
+        title: "Access Denied",
+        description: "Only the President & Chief Arbiter can delete tournaments.",
+        variant: "destructive",
+      });
+      return;
+    }
     deleteTournament(id);
     toast({
       title: "Success",
@@ -71,33 +90,37 @@ export default function TournamentsPage() {
       }} className="w-full">
         <TabsList>
           <TabsTrigger value="list">Tournaments ({tournaments.length})</TabsTrigger>
-          <TabsTrigger value="create">{editingTournament ? "Edit Tournament" : "Create Tournament"}</TabsTrigger>
+          {canManageTournaments && (
+            <TabsTrigger value="create">{editingTournament ? "Edit Tournament" : "Create Tournament"}</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="list" className="mt-6">
           <TournamentList
             tournaments={tournaments}
             players={players}
-            onEdit={(tournament) => {
+            onEdit={canManageTournaments ? (tournament) => {
               setEditingTournament(tournament);
               setActiveTab("create");
-            }}
-            onDelete={handleDeleteTournament}
+            } : undefined}
+            onDelete={canManageTournaments ? handleDeleteTournament : undefined}
             isLoading={!isLoaded}
           />
         </TabsContent>
 
-        <TabsContent value="create" className="mt-6">
-          <div className="flex justify-center">
-            <TournamentForm
-              key={editingTournament ? editingTournament.id : "new"}
-              players={players}
-              onSubmit={handleAddTournament}
-              initialTournament={editingTournament || undefined}
-              isSubmitting={isSubmitting}
-            />
-          </div>
-        </TabsContent>
+        {canManageTournaments && (
+          <TabsContent value="create" className="mt-6">
+            <div className="flex justify-center">
+              <TournamentForm
+                key={editingTournament ? editingTournament.id : "new"}
+                players={players}
+                onSubmit={handleAddTournament}
+                initialTournament={editingTournament || undefined}
+                isSubmitting={isSubmitting}
+              />
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

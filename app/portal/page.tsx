@@ -64,7 +64,7 @@ const ALL_PERMISSIONS: { id: ClubPermission; label: string; desc: string }[] = [
 ];
 
 export default function PortalPage() {
-  const { member, isSuperAdmin, members, addMember, updateMember, deleteMember } = useAuth();
+  const { member, isSuperAdmin, isPresident, canManageMembers, members, addMember, updateMember, deleteMember } = useAuth();
   const { toast } = useToast();
 
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -94,6 +94,14 @@ export default function PortalPage() {
   };
 
   const openEdit = (m: ClubMember) => {
+    if (!isPresident) {
+      toast({
+        title: "Access Restricted",
+        description: "Only the President can edit existing club members and their roles.",
+        variant: "destructive",
+      });
+      return;
+    }
     setEditingMember(m);
     setName(m.name);
     setEmail(m.email);
@@ -132,6 +140,10 @@ export default function PortalPage() {
     }
 
     if (editingMember) {
+      if (!isPresident) {
+        toast({ title: "Only the President can modify existing member details", variant: "destructive" });
+        return;
+      }
       await updateMember({
         ...editingMember,
         name: name.trim(),
@@ -147,10 +159,11 @@ export default function PortalPage() {
         id: crypto.randomUUID(),
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        role,
-        designation: designation.trim() || "Club Member",
-        permissions: selectedPermissions,
+        role: isPresident ? role : "member",
+        designation: isPresident ? (designation.trim() || "Club Member") : "Club Member",
+        permissions: isPresident ? selectedPermissions : ["verify_attendance"],
         isActive,
+        needsPasswordChange: true,
       });
       toast({ title: "New club member added!" });
     }
@@ -159,6 +172,10 @@ export default function PortalPage() {
   };
 
   const handleDelete = async (id: string, mName: string) => {
+    if (!isPresident) {
+      toast({ title: "Only the President can remove club members", variant: "destructive" });
+      return;
+    }
     if (id === member?.id || mName === "Omkar Bhagat") {
       toast({ title: "Cannot delete President account", variant: "destructive" });
       return;
@@ -168,14 +185,14 @@ export default function PortalPage() {
     toast({ title: `${mName} access removed.` });
   };
 
-  if (!isSuperAdmin) {
+  if (!canManageMembers) {
     return (
       <div className="container mx-auto py-12 text-center">
         <Card className="max-w-md mx-auto">
           <CardHeader>
             <ShieldCheck className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
             <CardTitle>Restricted Access</CardTitle>
-            <CardDescription>Only the President & Chief Arbiter can manage member portal access.</CardDescription>
+            <CardDescription>Only designated Club Committee Members can access the Club Portal.</CardDescription>
           </CardHeader>
         </Card>
       </div>
