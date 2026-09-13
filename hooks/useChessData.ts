@@ -176,10 +176,10 @@ export const useChessData = () => {
       setIsLoaded(false);
       try {
         const [pRes, tRes, paRes, stRes] = await Promise.all([
-          supabase.from("players").select("*").eq("user_id", user.id).order("created_at"),
-          supabase.from("tournaments").select("*").eq("user_id", user.id).order("created_at"),
-          supabase.from("pairings").select("*").eq("user_id", user.id).order("created_at"),
-          supabase.from("standings").select("*").eq("user_id", user.id),
+          supabase.from("players").select("*").order("created_at"),
+          supabase.from("tournaments").select("*").order("created_at"),
+          supabase.from("pairings").select("*").order("created_at"),
+          supabase.from("standings").select("*"),
         ]);
 
         const rawPlayers = pRes.data ?? [];
