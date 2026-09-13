@@ -23,8 +23,16 @@ export function Navbar() {
     <nav className="border-b bg-background sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 font-bold text-lg hover:opacity-90 transition-opacity">
-          <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-amber-500/30 shadow-sm bg-black/40 flex items-center justify-center">
-            <img src="/club-logo.jpg" alt="Checkmate | Chess Club" className="object-cover h-full w-full" />
+          <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-amber-500/40 shadow-sm bg-black/80 flex items-center justify-center">
+            <img 
+              src="/club-logo.png" 
+              alt="Checkmate | Chess Club" 
+              className="object-cover h-full w-full"
+              onError={(e) => {
+                // Fallback to jpg if png fails
+                (e.target as HTMLImageElement).src = "/club-logo.jpg";
+              }}
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-foreground font-extrabold tracking-tight text-base leading-tight">Checkmate | Chess Club</span>

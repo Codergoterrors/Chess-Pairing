@@ -51,8 +51,15 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo & Branding */}
         <div className="flex flex-col items-center gap-3">
-          <div className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-amber-500/40 shadow-md bg-black/60 p-1">
-            <img src="/club-logo.jpg" alt="Checkmate | Chess Club" className="object-cover h-full w-full rounded-xl" />
+          <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-2 border-amber-500/40 shadow-md bg-black/80 p-1 flex items-center justify-center">
+            <img 
+              src="/club-logo.png" 
+              alt="Checkmate | Chess Club" 
+              className="object-cover h-full w-full rounded-xl" 
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/club-logo.jpg";
+              }}
+            />
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-extrabold tracking-tight">Checkmate | Chess Club</h1>
