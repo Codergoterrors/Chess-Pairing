@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/tournaments");
+      router.replace("/");
     }
   }, [user, isLoading, router]);
 
@@ -34,7 +34,7 @@ export default function LoginPage() {
       setError("Invalid email or password. Please try again.");
       setIsSigningIn(false);
     } else {
-      router.replace("/tournaments");
+      router.replace("/");
     }
   };
 

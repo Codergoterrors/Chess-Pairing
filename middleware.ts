@@ -32,10 +32,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If logged in and on login page → redirect to tournaments
+  // If logged in and on login page → redirect to home
   if (session && isLoginPage) {
     const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/tournaments";
+    redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
   }
 

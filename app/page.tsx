@@ -15,12 +15,18 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Hero Section */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-12">
-          <h1 className="text-4xl font-bold tracking-tight">Chess Pairing System</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            Manage chess tournaments with Swiss system pairings. Register players, create tournaments, generate fair pairings, and track standings.
-          </p>
+      <div className="border-b bg-muted/10">
+        <div className="container mx-auto px-4 py-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Checkmate | Chess Club</h1>
+              </div>
+              <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
+                Official tournament pairing, player roster management, and live standings system.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
