@@ -143,3 +143,17 @@ export interface ClubMember {
   needsPasswordChange?: boolean;
   createdAt: number;
 }
+
+export interface AppNotification {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderEmail: string;
+  targetUserId?: string;
+  recipientRole?: "president" | "all" | "member";
+  type: "password_reset_request" | "password_reset_approved" | "password_reset_declined" | "system";
+  title: string;
+  message: string;
+  status: "pending" | "approved" | "declined" | "read";
+  createdAt: number;
+}

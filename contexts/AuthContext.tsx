@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { ClubMember, ClubPermission } from "@/lib/types";
+import { ClubMember, ClubPermission, AppNotification } from "@/lib/types";
 
 interface AuthContextType {
   user: User | null;
@@ -16,7 +16,14 @@ interface AuthContextType {
   hasPermission: (permission: ClubPermission) => boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  signOutDevice: (scope?: "local" | "global") => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<string | null>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
+  requestPasswordReset: (reason?: string) => Promise<void>;
+  approvePasswordReset: (notificationId: string, targetUserId?: string) => Promise<void>;
+  declinePasswordReset: (notificationId: string) => Promise<void>;
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
   members: ClubMember[];
   addMember: (member: Omit<ClubMember, "createdAt">) => Promise<void>;
   updateMember: (member: ClubMember) => Promise<void>;
@@ -71,7 +78,14 @@ const AuthContext = createContext<AuthContextType>({
   hasPermission: () => false,
   signIn: async () => null,
   signOut: async () => {},
+  signOutDevice: async () => {},
   updateUserPassword: async () => null,
+  changePassword: async () => null,
+  requestPasswordReset: async () => {},
+  approvePasswordReset: async () => {},
+  declinePasswordReset: async () => {},
+  notifications: [],
+  unreadNotificationCount: 0,
   members: [],
   addMember: async () => {},
   updateMember: async () => {},
@@ -79,21 +93,22 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 const STORAGE_KEY = "chess_club_members_v3";
+const NOTIFICATIONS_KEY = "chess_club_notifications_v1";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [member, setMember] = useState<ClubMember | null>(null);
   const [members, setMembers] = useState<ClubMember[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load members list from localStorage or initialize with defaults
+  // Load members list from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed: ClubMember[] = JSON.parse(stored);
-        // Ensure Omkar and Aditya exist
         const hasAditya = parsed.some(m => m.email.toLowerCase() === DEFAULT_VICE_PRESIDENT.email.toLowerCase());
         const hasOmkar = parsed.some(m => m.email.toLowerCase() === DEFAULT_SUPER_ADMIN.email.toLowerCase() || m.name === "Omkar Bhagat");
         let list = parsed;
@@ -108,6 +123,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setMembers(INITIAL_MEMBERS);
     }
   }, []);
+
+  // Load notifications from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(NOTIFICATIONS_KEY);
+      if (stored) {
+        setNotifications(JSON.parse(stored));
+      }
+    } catch {
+      setNotifications([]);
+    }
+  }, []);
+
+  const saveNotifications = (updated: AppNotification[]) => {
+    setNotifications(updated);
+    try {
+      localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Failed to persist notifications", e);
+    }
+  };
 
   const saveMembers = (updated: ClubMember[]) => {
     setMembers(updated);
@@ -129,12 +165,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
 
       // Read needs_password_change from Supabase user_metadata
-      // If explicitly false -> password already changed (no popup)
-      // If true or undefined for Aditya -> first login / after reset (show popup until changed)
       const metaFlag = u.user_metadata?.needs_password_change;
       const needsPasswordChange = !isOmkar && (metaFlag === true || (isAditya && metaFlag !== false));
 
-      // Match by exact email or fallback
       const matched = members.find(m => m.email.toLowerCase().trim() === email);
       if (matched) {
         setMember({ ...matched, needsPasswordChange });
@@ -167,7 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    // Listen for auth changes (login / logout / token refresh)
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -194,19 +227,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
+  };
+
+  const signOutDevice = async (scope: "local" | "global" = "local") => {
+    await supabase.auth.signOut({ scope });
   };
 
   const updateUserPassword = async (newPassword: string): Promise<string | null> => {
-    // Update password AND store needs_password_change: false in Supabase user_metadata
-    // This persists the flag cross-browser/cross-device, not just in localStorage
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
       data: { needs_password_change: false },
     });
     if (error) return error.message;
 
-    // Also clear needsPasswordChange flag in localStorage for immediate UI update
     if (member) {
       const updatedMem: ClubMember = { ...member, needsPasswordChange: false };
       setMember(updatedMem);
@@ -215,6 +249,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return null;
   };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<string | null> => {
+    if (!user || !user.email) return "User is not authenticated.";
+
+    // Verify current password first by reauthenticating
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (authErr) {
+      return "Current password is incorrect. Please check and try again.";
+    }
+
+    // Update to new password
+    return await updateUserPassword(newPassword);
+  };
+
+  const requestPasswordReset = async (reason?: string) => {
+    const newNotif: AppNotification = {
+      id: crypto.randomUUID(),
+      senderId: user?.id || member?.id || "unknown",
+      senderName: member?.name || user?.email?.split("@")[0] || "Club Member",
+      senderEmail: member?.email || user?.email || "",
+      recipientRole: "president",
+      type: "password_reset_request",
+      title: "Password Reset Requested",
+      message: `${member?.name || user?.email} requested a password reset. ${reason || ""}`,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    saveNotifications([newNotif, ...notifications]);
+  };
+
+  const approvePasswordReset = async (notificationId: string, targetUserId?: string) => {
+    // Mark notification as approved
+    const notif = notifications.find(n => n.id === notificationId);
+    const updatedNotifs = notifications.map(n => n.id === notificationId ? { ...n, status: "approved" as const } : n);
+
+    // Create confirmation notification for target user
+    const responseNotif: AppNotification = {
+      id: crypto.randomUUID(),
+      senderId: user?.id || "omkar-president-id",
+      senderName: "Omkar Bhagat (President)",
+      senderEmail: "omkar.bhagatt@gmail.com",
+      targetUserId: targetUserId || notif?.senderId,
+      recipientRole: "member",
+      type: "password_reset_approved",
+      title: "Password Reset Approved!",
+      message: "President Omkar Bhagat approved your password reset request. You will be prompted to set your new password on your next login.",
+      status: "pending",
+      createdAt: Date.now(),
+    };
+
+    saveNotifications([responseNotif, ...updatedNotifs]);
+
+    // Also update member list needsPasswordChange flag
+    const targetEmail = notif?.senderEmail;
+    if (targetEmail) {
+      const updatedList = members.map(m => {
+        if (m.email.toLowerCase() === targetEmail.toLowerCase()) {
+          return { ...m, needsPasswordChange: true };
+        }
+        return m;
+      });
+      saveMembers(updatedList);
+    }
+  };
+
+  const declinePasswordReset = async (notificationId: string) => {
+    const notif = notifications.find(n => n.id === notificationId);
+    const updatedNotifs = notifications.map(n => n.id === notificationId ? { ...n, status: "declined" as const } : n);
+
+    if (notif) {
+      const responseNotif: AppNotification = {
+        id: crypto.randomUUID(),
+        senderId: user?.id || "omkar-president-id",
+        senderName: "Omkar Bhagat (President)",
+        senderEmail: "omkar.bhagatt@gmail.com",
+        targetUserId: notif.senderId,
+        recipientRole: "member",
+        type: "password_reset_declined",
+        title: "Password Reset Declined",
+        message: "Your password reset request was reviewed and declined by the President.",
+        status: "pending",
+        createdAt: Date.now(),
+      };
+      saveNotifications([responseNotif, ...updatedNotifs]);
+    } else {
+      saveNotifications(updatedNotifs);
+    }
+  };
+
+  const unreadNotificationCount = notifications.filter(n => {
+    if (n.status !== "pending") return false;
+    if (isPresident && n.recipientRole === "president") return true;
+    if (n.targetUserId === user?.id || n.targetUserId === member?.id) return true;
+    return false;
+  }).length;
 
   const addMember = async (newMem: Omit<ClubMember, "createdAt">) => {
     const full: ClubMember = { ...newMem, createdAt: Date.now() };
@@ -235,7 +367,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, member, isLoading, isSuperAdmin, isPresident, canManageMembers, hasPermission,
-      signIn, signOut, updateUserPassword, members, addMember, updateMember, deleteMember
+      signIn, signOut, signOutDevice, updateUserPassword, changePassword,
+      requestPasswordReset, approvePasswordReset, declinePasswordReset,
+      notifications, unreadNotificationCount, members, addMember, updateMember, deleteMember
     }}>
       {children}
     </AuthContext.Provider>
@@ -243,5 +377,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
 
 
