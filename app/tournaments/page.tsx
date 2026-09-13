@@ -7,6 +7,7 @@ import { TournamentForm } from "@/components/tournaments/tournament-form";
 import { TournamentList } from "@/components/tournaments/tournament-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function TournamentsPage() {
   const { players, tournaments, isLoaded, addTournament, updateTournament, deleteTournament } = useChessData();
