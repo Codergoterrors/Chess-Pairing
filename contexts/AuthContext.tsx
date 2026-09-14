@@ -65,7 +65,24 @@ const DEFAULT_VICE_PRESIDENT: ClubMember = {
   createdAt: Date.now(),
 };
 
-const INITIAL_MEMBERS = [DEFAULT_SUPER_ADMIN, DEFAULT_VICE_PRESIDENT];
+const DEFAULT_OM_KORAKE: ClubMember = {
+  id: "6120a7f6-14f6-466a-b8ea-3b78487184d4",
+  email: "ompkorke2004@gmail.com",
+  name: "Om Korake",
+  role: "organizer",
+  designation: "Events & Operations Head",
+  permissions: [
+    "manage_players",
+    "manage_pairings",
+    "enter_results",
+    "verify_attendance",
+  ],
+  isActive: true,
+  needsPasswordChange: false, // Real value comes from Supabase user_metadata
+  createdAt: Date.now(),
+};
+
+const INITIAL_MEMBERS = [DEFAULT_SUPER_ADMIN, DEFAULT_VICE_PRESIDENT, DEFAULT_OM_KORAKE];
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -92,7 +109,7 @@ const AuthContext = createContext<AuthContextType>({
   deleteMember: async () => {},
 });
 
-const STORAGE_KEY = "chess_club_members_v3";
+const STORAGE_KEY = "chess_club_members_v4";
 const NOTIFICATIONS_KEY = "chess_club_notifications_v1";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -111,8 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const parsed: ClubMember[] = JSON.parse(stored);
         const hasAditya = parsed.some(m => m.email.toLowerCase() === DEFAULT_VICE_PRESIDENT.email.toLowerCase());
         const hasOmkar = parsed.some(m => m.email.toLowerCase() === DEFAULT_SUPER_ADMIN.email.toLowerCase() || m.name === "Omkar Bhagat");
+        const hasOmKorake = parsed.some(m => m.email.toLowerCase() === DEFAULT_OM_KORAKE.email.toLowerCase());
         let list = parsed;
         if (!hasAditya) list = [...list, DEFAULT_VICE_PRESIDENT];
+        if (!hasOmKorake) list = [...list, DEFAULT_OM_KORAKE];
         if (!hasOmkar) list = [DEFAULT_SUPER_ADMIN, ...list];
         setMembers(list);
       } else {
@@ -163,10 +182,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = u.email?.toLowerCase().trim() || "";
       const isOmkar = email.includes("omkar") || email === DEFAULT_SUPER_ADMIN.email.toLowerCase();
       const isAditya = email === DEFAULT_VICE_PRESIDENT.email.toLowerCase();
+      const isOmKorake = email === DEFAULT_OM_KORAKE.email.toLowerCase();
+      const isDefaultUserNeedingModal = isAditya || isOmKorake;
 
       // Read needs_password_change from Supabase user_metadata
       const metaFlag = u.user_metadata?.needs_password_change;
-      const needsPasswordChange = !isOmkar && (metaFlag === true || (isAditya && metaFlag !== false));
+      const needsPasswordChange = !isOmkar && (metaFlag === true || (isDefaultUserNeedingModal && metaFlag !== false));
 
       const matched = members.find(m => m.email.toLowerCase().trim() === email);
       if (matched) {
@@ -176,6 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setMember({ ...DEFAULT_SUPER_ADMIN, email: email || DEFAULT_SUPER_ADMIN.email, needsPasswordChange: false });
         } else if (isAditya) {
           setMember({ ...DEFAULT_VICE_PRESIDENT, needsPasswordChange });
+        } else if (isOmKorake) {
+          setMember({ ...DEFAULT_OM_KORAKE, needsPasswordChange });
         } else {
           setMember({
             id: u.id,
