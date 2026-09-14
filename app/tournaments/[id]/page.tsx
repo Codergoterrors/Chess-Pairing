@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { RoundPairings } from "@/components/tournaments/round-pairings";
 import { StandingsTable } from "@/components/tournaments/standings-table";
 import { ExportStandings } from "@/components/tournaments/export-standings";
-import { AddPlayerDialog } from "@/components/tournaments/add-player-dialog";
 import { TimeControlDialog } from "@/components/tournaments/time-control-dialog";
 import { SpotEntryDialog, NewPlayerDraft } from "@/components/tournaments/SpotEntryDialog";
 import { generateSwissPairings, generateSeededKnockoutPairings } from "@/lib/pairing-algorithm";
@@ -538,22 +537,15 @@ export default function TournamentDetailPage() {
             {tournament.description && <p className="text-muted-foreground mt-2">{tournament.description}</p>}
           </div>
           <div className="flex gap-2 flex-wrap justify-end">
-            {/* Legacy add-player (for planning stage) */}
-            {tournament.status !== "in-progress" && (
-              <AddPlayerDialog tournament={tournament} availablePlayers={players} onAddPlayers={handleAddPlayers} />
-            )}
-
-            {/* Spot Entry — visible only when tournament is running */}
-            {tournament.status === "in-progress" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setShowSpotEntry(true)}
-              >
-                <UserPlus className="h-4 w-4" /> Spot Entry
-              </Button>
-            )}
+            {/* Spot Entry — always visible for all tournament stages */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowSpotEntry(true)}
+            >
+              <UserPlus className="h-4 w-4" /> Spot Entry
+            </Button>
 
             {tournamentStandings.length > 0 && (
               <ExportStandings tournament={tournament} standings={tournamentStandings} players={playersMap} />
